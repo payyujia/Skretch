@@ -1,0 +1,60 @@
+:root {
+  --canvas-bg: #f7f8fa;
+  --canvas-dot: #dfe3e8;
+  --ink: #1c1f26;
+  --muted: #6b7280;
+  --surface: #ffffff;
+  --border: #dadde3;
+  --border-strong: #1c1f26;
+
+  --user-accent: #2f5fe0;
+  --user-accent-tint: #eaf0ff;
+  --agent-accent: #7a4fe0;
+  --agent-accent-tint: #f2eeff;
+  --danger: #e14b3d;
+
+  --shadow-sm: 0 1px 2px rgba(28, 31, 38, 0.07), 0 1px 1px rgba(28, 31, 38, 0.04);
+  --shadow-md: 0 12px 28px rgba(28, 31, 38, 0.12);
+
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--canvas-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+textarea {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--user-accent-tint);
+}
+
+:focus-visible {
+  outline: 2px solid var(--user-accent);
+  outline-offset: 2px;
+}
