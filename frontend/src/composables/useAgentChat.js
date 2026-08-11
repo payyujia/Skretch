@@ -49,9 +49,6 @@ export function useAgentChat() {
       case 'node_deleted':
         board.applyDeleted(evt)
         break
-      case 'edge_added':
-        board.applyEdgeAdded(evt)
-        break
     }
   }
 

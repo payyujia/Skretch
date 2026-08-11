@@ -1,0 +1,302 @@
+<script setup>
+import { computed, nextTick, ref, watch } from 'vue'
+import { Trash2 } from 'lucide-vue-next'
+import { useBoardStore } from '../stores/board'
+
+const props = defineProps({
+  id: { type: String, required: true },
+  data: { type: Object, required: true },
+})
+
+const board = useBoardStore()
+const textareaRef = ref(null)
+
+const colorOptions = [
+  { name: 'purple', hex: 'rgb(216 180 254)' },
+  { name: 'yellow', hex: 'rgb(252 211 77)' },
+  { name: 'mint', hex: 'rgb(110 231 183)' },
+  { name: 'blue', hex: 'rgb(125 211 252)' },
+  { name: 'coral', hex: 'rgb(253 164 175)' },
+]
+
+const reactionOptions = ['👍', '👎', '🔥', '🤡', '❤️']
+
+const isEditing = computed(() => board.editingNodeId === props.id)
+const isSelected = computed(() => board.selectedNodeId === props.id)
+const isAgent = computed(() => props.data.createdBy === 'agent')
+
+const content = computed({
+  get: () => props.data.content,
+  set: (value) => board.setContentLocal(props.id, value),
+})
+
+const noteColor = computed(() => {
+  const chosen = props.data.data?.color
+  return colorOptions.find((option) => option.name === chosen)?.hex ?? colorOptions[0].hex
+})
+
+const currentColorName = computed(() => props.data.data?.color ?? colorOptions[0].name)
+
+const reactions = computed(() => props.data.data?.reactions || {})
+
+const reactionEntries = computed(() => Object.entries(reactions.value).filter(([, count]) => count > 0))
+
+function selectColor(color) {
+  board.checkpoint()
+  board.updateNodeData(props.id, { color })
+}
+
+function addReaction(emoji) {
+  const current = reactions.value[emoji] || 0
+  board.checkpoint()
+  board.updateNodeData(props.id, {
+    reactions: { ...reactions.value, [emoji]: current + 1 },
+  })
+}
+
+watch(isEditing, async (editing) => {
+  if (!editing) return
+  await nextTick()
+  textareaRef.value?.focus()
+  textareaRef.value?.select()
+  autoGrow({ target: textareaRef.value })
+})
+
+function autoGrow(event) {
+  const el = event.target
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
+async function onKeydown(event) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    board.checkpoint()
+    await board.commitNode(props.id, content.value)
+    board.spawnFrom(props.id, 'down')
+  
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    board.checkpoint()
+    await board.commitNode(props.id, content.value)
+    board.stopEditing()
+  } else if (event.key === 'Backspace' && !content.value) {
+    event.preventDefault()
+    board.checkpoint()
+    board.deleteNode(props.id)
+  }
+}
+
+async function onBlur() {
+  if (!isEditing.value) return
+  board.checkpoint()
+  await board.commitNode(props.id, content.value)
+  board.stopEditing()
+}
+
+function onDoubleClick() {
+  board.startEditing(props.id)
+}
+</script>
+
+<template>
+  <div
+    class="board-node sticky-note"
+    :class="{ agent: isAgent, selected: isSelected, editing: isEditing, thinking: data.thinking, 'just-placed': data.justPlaced }"
+    :style="{ backgroundColor:`color-mix(in oklab, ${noteColor}, white 50%)`, borderTopColor: noteColor}"
+    @dblclick.stop="onDoubleClick"
+  >
+    <span v-if="isAgent" class="node-badge">AI</span>
+    <div class="header">
+      <span>◍ @{{data.created_by}}</span>
+      <div class="color-picker">
+        <button
+          v-for="option in colorOptions"
+          :key="option.name"
+          type="button"
+          class="color-swatch"
+          :class="{ active: currentColorName === option.name }"
+          :style="{ backgroundColor: option.hex }"
+          @click.stop="selectColor(option.name)"
+          :aria-label="`Set note color to ${option.name}`"
+        ></button>
+      </div>
+      <button type="button" class="node-remove" @click.stop="board.deleteNode(id)">
+        <Trash2 :size="14 " />
+      </button>
+    </div>
+    <textarea
+      v-if="isEditing"
+      ref="textareaRef"
+      v-model="content"
+      class="node-text"
+      rows="1"
+      placeholder="Type an idea…"
+      @input="autoGrow"
+      @keydown="onKeydown"
+      @blur="onBlur"
+      @pointerdown.stop
+    />
+    <p v-else class="node-text" :class="{ empty: !data.content }">
+      <span v-if="data.thinking" class="node-typing-dots"><i /><i /><i /></span>
+      <template v-else>{{ data.content || 'Empty idea' }}</template>
+    </p>
+    <div class="footer">
+      <div class="reactions">
+        <template v-if="reactionEntries.length">
+          <span v-for="([emoji, count]) in reactionEntries" :key="emoji" class="reaction-pill">
+            {{ emoji }}{{ count }}
+          </span>
+        </template>
+      </div>
+      <div class="reaction-selector">
+        <button
+          v-for="reaction in reactionOptions"
+          :key="reaction"
+          type="button"
+          class="reaction-button"
+          @click.stop="addReaction(reaction)"
+        >{{ reaction }}</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.sticky-note {
+  position: relative;
+  width: 15rem;
+  padding: var(--radius);
+  border-top-width: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: .375rem;
+  filter: brightness(1.1);
+
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+.sticky-note:hover { 
+  filter:brightness(1);
+}
+
+.color-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--border);
+  background-color: var(--canvas-bg);
+  border-radius:.5rem;
+  opacity: 0;
+  visibility: hidden;
+  padding: 0 3px;
+  height:1.2rem;
+  box-shadow: var(--shadow-sm);
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.sticky-note:hover .color-picker {
+  opacity: 1;
+  visibility: visible;
+}
+
+.color-swatch {
+  height: 0.8rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.color-swatch.active {
+  box-shadow: 0 0 0 1px var(--user-accent );
+}
+
+.node-text {
+  margin: 0;
+  min-height: 4rem;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.node-text.empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+textarea.node-text {
+  width: 100%;
+  min-height: 4rem;
+  resize: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  outline: none;
+  overflow: hidden;
+  font-size: 14px;
+  font-family: var(--font-body);
+}
+
+.footer {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  width: 100%;
+}
+.header {
+  display: flex;
+  color: var(--muted);
+  gap: 0.75rem;
+  place-items: center;
+  justify-content: space-between;
+}
+
+.reactions {
+  display: flex;
+  gap: 0.25rem;
+  min-height: 1rem;
+  font-size: 0.75rem;
+}
+
+.reaction-pill {
+  align-items: center;
+  border-radius: 0.5rem;
+  padding: 1px 4px;
+  color:var(--muted);
+  background:var(--canvas-bg);
+  border: 1px solid var(--border);
+}
+
+.reaction-selector {
+  display: flex;
+  width:10rem;
+  opacity: 0;
+  box-shadow: inset var(--shadow-sm);
+  justify-content: space-evenly;
+  margin-left: auto;
+  border:1px solid var(--border);
+  border-radius: .5rem;
+  background-color: var(--canvas-bg);
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.sticky-note:hover .reaction-selector {
+  opacity: 1;
+  visibility: visible;
+}
+
+.reaction-button {
+  background-color: transparent;
+  border: none;
+  line-height: 1rem;
+  font-size: 0.75rem;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.reaction-button:hover {
+  transform: translateY(-1px);
+  scale: 1.3;
+}
+
+</style>

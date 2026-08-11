@@ -11,7 +11,7 @@
   --user-accent-tint: #eaf0ff;
   --agent-accent: #7a4fe0;
   --agent-accent-tint: #f2eeff;
-  --danger: #e14b3d;
+  --danger: #f43f5e;
 
   --shadow-sm: 0 1px 2px rgba(28, 31, 38, 0.07), 0 1px 1px rgba(28, 31, 38, 0.04);
   --shadow-md: 0 12px 28px rgba(28, 31, 38, 0.12);
@@ -20,7 +20,7 @@
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
-  --radius: 10px;
+  --radius: .75rem;
 }
 
 * {
@@ -57,4 +57,109 @@ textarea {
 :focus-visible {
   outline: 2px solid var(--user-accent);
   outline-offset: 2px;
+}
+
+/* Shared chrome for every node type — cards, agent styling, live states.
+   Type-specific inner content is styled locally in each node component. */
+.board-node {
+  position: relative;
+  background: var(--surface);
+  border: 0px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  font-size: 14px;
+  line-height: 1.4;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.board-node.selected {
+  border-color: var(--user-accent);
+  outline: 4px solid var(--user-accent);
+  box-shadow: 0 0 0 3px var(--user-accent-tint);
+}
+
+.board-node.agent {
+  border-color: var(--agent-accent);
+  background: var(--agent-accent-tint);
+}
+
+.board-node.agent.selected {
+  box-shadow: 0 0 0 3px rgba(122, 79, 224, 0.18);
+}
+
+.board-node.thinking {
+  border-style: dashed;
+  background: var(--surface);
+  animation: node-pulse 1.3s ease-in-out infinite;
+}
+
+.board-node.just-placed {
+  animation: node-glow 0.9s ease-out;
+}
+
+.board-node.editing {
+  box-shadow: var(--shadow-md);
+}
+
+.node-badge {
+  position: absolute;
+  top: -9px;
+  left: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color:var(--surface);
+  background: var(--agent-accent);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.node-remove {
+  border-radius: .25rem;
+  border: none;
+  color:var(--muted);
+  background-color: inherit;
+  padding: .25rem .25rem 0rem .25rem ;
+}
+.node-remove:hover {
+  color:var(--danger);
+  background-color: var(--surface);
+}
+
+.node-typing-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  height: 14px;
+}
+
+.node-typing-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--agent-accent);
+  animation: node-bounce 1.1s infinite ease-in-out;
+}
+
+.node-typing-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.node-typing-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes node-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes node-glow {
+  0% { box-shadow: 0 0 0 6px rgba(122, 79, 224, 0.28); }
+  100% { box-shadow: var(--shadow-sm); }
+}
+
+@keyframes node-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+  40% { transform: translateY(-3px); opacity: 1; }
 }

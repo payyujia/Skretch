@@ -3,52 +3,43 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import IdeaNode from './IdeaNode.vue'
+import StickyNoteNode from './StickyNoteNode.vue'
+import Toolbar from './Toolbar.vue'
+import ChatPopover from './ChatPopover.vue'
 import { useBoardStore } from '../stores/board'
+import { useToolStore } from '../stores/tool'
 import { defaultSpawnPosition } from '../utils/layout'
-
-const emit = defineEmits(['ask-ai'])
+// import { uploadImage } from '../api/client'
+// import { validateImageFile } from '../utils/image'
 
 const board = useBoardStore()
+const tool = useToolStore()
 const { screenToFlowCoordinate } = useVueFlow()
 const hoveredNodeId = ref(null)
+const chatRef = ref(null)
 
 const flowNodes = computed(() =>
   board.nodes.map((n) => ({
     id: n.id,
-    type: 'idea',
+    type: n.type,
     position: { x: n.x, y: n.y },
     data: n,
-    draggable: !n.thinking,
+    draggable: !n.thinking && tool.active === 'select',
     connectable: Boolean(n.serverId),
   }))
 )
 
-const flowEdges = computed(() =>
-  board.edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    class: hoveredNodeId.value && (e.source === hoveredNodeId.value || e.target === hoveredNodeId.value)
-      ? 'edge-active'
-      : '',
-  }))
-)
-
 function onNodeDragStop({ node }) {
+  board.checkpoint()
   board.moveNode(node.id, node.position.x, node.position.y)
 }
 
-function onConnect(connection) {
-  board.addEdge(connection.source, connection.target)
-}
-
 function onNodeClick({ node }) {
-  board.select(node.id)
+  if (tool.active === 'select') board.select(node.id)
 }
 
 function onNodeDoubleClick({ node }) {
-  board.startEditing(node.id)
+  if (tool.active === 'select') board.startEditing(node.id)
 }
 
 function onNodeMouseEnter({ node }) {
@@ -59,64 +50,102 @@ function onNodeMouseLeave() {
   hoveredNodeId.value = null
 }
 
-function onPaneClick() {
-  board.deselect()
+function onPaneClick(event) {
+  if (tool.active === 'nodes' && tool.pendingNodeType) {
+    const pos = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+    board.createNodeOfType(tool.pendingNodeType, pos.x, pos.y)
+    return
+  }
+  if (tool.active === 'select') board.deselect()
 }
 
 function onPaneDoubleClick(event) {
+  if (tool.active !== 'select') return
   if (event.target.closest('.vue-flow__node')) return
+  board.checkpoint()
   const pos = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
   board.spawnNode(pos)
+}
+
+async function onPaste(event) {
+  const item = [...(event.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'))
+  if (!item) return
+  const file = item.getAsFile()
+  if (!file || validateImageFile(file)) return // silently ignore; explicit upload UI shows errors
+
+  const pos = defaultSpawnPosition()
+  const id = await board.createNodeOfType('image', pos.x, pos.y)
+  try {
+    const { url } = await uploadImage(file)
+    board.checkpoint()
+    await board.updateNodeData(id, { image: url, embedding: null })
+  } catch {
+    // leave the node as an empty placeholder — the click-to-upload UI lets them retry
+  }
 }
 
 function handleKeydown(event) {
   const tag = document.activeElement?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA') return // node & chat inputs own their own keys
 
-  if (event.key === 'Enter' && board.selectedNodeId && !board.editingNodeId) {
+  const meta = event.metaKey || event.ctrlKey
+  if (meta && event.key.toLowerCase() === 'z' && event.shiftKey) {
     event.preventDefault()
+    board.redo()
+  } else if (meta && event.key.toLowerCase() === 'z') {
+    event.preventDefault()
+    board.undo()
+  } else if (event.key.toLowerCase() === 'v' && !meta) {
+    tool.setSelect()
+  } else if (event.key === 'Enter' && board.selectedNodeId && !board.editingNodeId) {
+    event.preventDefault()
+    board.checkpoint()
     board.spawnFrom(board.selectedNodeId, event.shiftKey ? 'side' : 'down')
   } else if (event.key === 'Enter') {
     event.preventDefault()
+    board.checkpoint()
     board.spawnNode(defaultSpawnPosition())
   } else if ((event.key === 'Delete' || event.key === 'Backspace') && board.selectedNodeId && !board.editingNodeId) {
     event.preventDefault()
+    board.checkpoint()
     board.deleteNode(board.selectedNodeId)
-  } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'j' && board.selectedNodeId) {
+  } else if (meta && event.key.toLowerCase() === 'j' && board.selectedNodeId) {
     event.preventDefault()
-    emit('ask-ai')
-  } else if (event.key === 'Escape' && board.selectedNodeId) {
-    board.deselect()
+    chatRef.value?.focusWithContext()
+  } else if (event.key === 'Escape') {
+    if (tool.active !== 'select') tool.setSelect()
+    else if (board.selectedNodeId) board.deselect()
   }
 }
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('paste', onPaste)
   board.fetchBoard()
 })
-onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('paste', onPaste)
+})
 </script>
 
 <template>
   <div class="canvas-wrapper" @dblclick="onPaneDoubleClick">
     <VueFlow
       :nodes="flowNodes"
-      :edges="flowEdges"
       :default-viewport="{ zoom: 1 }"
       :min-zoom="0.3"
       :max-zoom="1.75"
       :nodes-connectable="true"
       @node-drag-stop="onNodeDragStop"
-      @connect="onConnect"
       @node-click="onNodeClick"
       @node-double-click="onNodeDoubleClick"
       @node-mouse-enter="onNodeMouseEnter"
       @node-mouse-leave="onNodeMouseLeave"
       @pane-click="onPaneClick"
     >
-      <template #node-idea="props">
-        <IdeaNode v-bind="props" />
-      </template>
+      <template #node-sticky="props"><StickyNoteNode v-bind="props" /></template>
+      <template #node-image="props"><ImageNode v-bind="props" /></template>
       <Background variant="dots" :gap="28" :size="1.6" color="var(--canvas-dot)" />
       <Controls :show-interactive="false" position="bottom-left" />
     </VueFlow>
@@ -127,11 +156,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
         <span class="dot">·</span>
         <span><kbd>⇧Enter</kbd> new branch</span>
         <span class="dot">·</span>
-        <span>drag a node's edge to link ideas</span>
-        <span class="dot">·</span>
-        <span>double-click the canvas to drop a note</span>
+        <span>pick a tool below to draw or add other node types</span>
       </div>
     </transition>
+
+    <Toolbar />
+    <ChatPopover ref="chatRef" />
   </div>
 </template>
 
@@ -139,21 +169,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 .canvas-wrapper {
   position: relative;
   min-width: 0;
+  height: 100%;
   background: var(--canvas-bg);
 }
 
 .canvas-wrapper :deep(.vue-flow) {
   background: var(--canvas-bg);
-}
-
-.canvas-wrapper :deep(.vue-flow__edge-path) {
-  stroke: #c3c8d1;
-  stroke-width: 1.6;
-}
-
-.canvas-wrapper :deep(.edge-active .vue-flow__edge-path) {
-  stroke: var(--ink);
-  stroke-width: 2;
 }
 
 .canvas-wrapper :deep(.vue-flow__controls) {
@@ -162,7 +183,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
   overflow: hidden;
   border: 1px solid var(--border);
 }
-  
+
 .canvas-wrapper :deep(.vue-flow__controls-button) {
   background: var(--surface);
   border: none;
@@ -172,7 +193,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 
 .hint-bar {
   position: absolute;
-  bottom: 20px;
+  top: 20px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -186,6 +207,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
   font-size: 12.5px;
   color: var(--muted);
   white-space: nowrap;
+  z-index: 15;
 }
 
 .hint-bar kbd {

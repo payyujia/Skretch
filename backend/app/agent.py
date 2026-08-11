@@ -4,48 +4,33 @@ endpoint), gives it tools that mutate the board, and streams each action out ove
 a websocket the moment it happens so the canvas feels alive rather than "submit
 and wait".
 """
-import os
 import json
 import uuid
 import asyncio
 from typing import Callable, Awaitable
 
-from openai import OpenAI
 from sqlalchemy.orm import Session
 
-from . import crud
+from . import crud, ai_gateway
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 MAX_TOOL_TURNS = 6
 NODE_SPACING = 260
+FRAME_PADDING = 40
 
 Send = Callable[[dict], Awaitable[None]]
-
-_client: OpenAI | None = None
-
-
-def get_client() -> OpenAI:
-    global _client
-    if _client is None:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError("GEMINI_API_KEY is not set — add it to backend/.env")
-        _client = OpenAI(
-            api_key=api_key,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        )
-    return _client
 
 
 SYSTEM_PROMPT = """You are a brainstorming partner working alongside a user on an \
 infinite whiteboard canvas. You share the board with them — you don't just answer \
-questions, you actively add, connect, and tidy up ideas using your tools.
+questions, you actively add and organize ideas using your tools.
 
 Guidelines:
 - Nodes are sticky notes, not paragraphs: a few words to one short sentence each.
-- Prefer several small connected nodes over one dense node.
-- When an idea relates to one the user already has, pass its id as near_node_id \
-  (this places and links your new node near it) or use link_nodes afterwards.
+- Prefer several small nodes over one dense node.
+- Frames are the only way to group ideas. If you're adding related nodes, either \
+  drop them into an existing frame (parent_id) or create a new frame with \
+  create_frame and put them inside it. An ungrouped pile of notes is a smell — \
+  group things once a cluster of 3+ related nodes exists.
 - Don't restate node text back in your reply. After acting, send one short, \
   conversational sentence about what you did or what you're noticing.
 - If the user is just chatting and there's nothing board-worthy yet, it's fine to \
@@ -62,9 +47,19 @@ TOOLS = [
                 "type": "object",
                 "properties": {
                     "content": {"type": "string", "description": "Short node text."},
+                    "parent_id": {
+                        "type": "string",
+                        "description": "Optional frame id to place this node inside.",
+                    },
                     "near_node_id": {
                         "type": "string",
-                        "description": "Optional existing node id to place this next to and link from.",
+                        "description": "Optional existing node id to place this near "
+                                       "(ignored if parent_id is set).",
+                    },
+                    "node_type": {
+                        "type": "string",
+                        "enum": ["sticky", "image","frame"],
+                        "description": "Defaults to 'sticky', a short sticky note containing an insightful idea, a few words to 2 sentences long. Use 'frame' to create a container housing other nodes of similar theme. Use 'image' for images found online that illustrate well your point." ,
                     },
                 },
                 "required": ["content"],
@@ -89,21 +84,6 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "link_nodes",
-            "description": "Draw a connection between two existing nodes.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "source_id": {"type": "string"},
-                    "target_id": {"type": "string"},
-                },
-                "required": ["source_id", "target_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "delete_node",
             "description": "Remove a node that's redundant or resolved.",
             "parameters": {
@@ -113,22 +93,84 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_frame",
+            "description": "Create a labeled frame that groups a set of existing nodes together.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string", "description": "Short name for this cluster of ideas."},
+                    "node_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Existing node ids to move inside the new frame.",
+                    },
+                },
+                "required": ["label"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "move_node",
+            "description": "Move a node into a frame, or out to the top level.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "node_id": {"type": "string"},
+                    "parent_id": {
+                        "type": ["string", "null"],
+                        "description": "Target frame id, or null to remove from any frame.",
+                    },
+                },
+                "required": ["node_id", "parent_id"],
+            },
+        },
+    },
 ]
 
 
 def _board_snapshot(db: Session) -> str:
-    nodes, edges = crud.get_board(db)
+    nodes = crud.get_board(db)
+    nodes = [n for n in nodes if n.type != "stroke"]
     if not nodes:
         return "The board is currently empty."
-    node_lines = "\n".join(f'- {n.id} ({n.created_by}): "{n.content}"' for n in nodes)
-    edge_lines = "\n".join(f"- {e.source_id} -> {e.target_id}" for e in edges) or "(none)"
-    return f"Current nodes:\n{node_lines}\n\nCurrent links:\n{edge_lines}"
+
+    frames = {n.id: n for n in nodes if n.type == "frame"}
+    by_parent: dict[str | None, list] = {}
+    for n in nodes:
+        if n.type == "frame":
+            continue
+        by_parent.setdefault(n.parent_id, []).append(n)
+
+    lines = []
+    for fid, frame in frames.items():
+        lines.append(f'Frame {fid} "{frame.content}":')
+        for n in by_parent.get(fid, []):
+            lines.append(f'  - {n.id} ({n.created_by}, {n.type}): "{n.content}"')
+    ungrouped = by_parent.get(None, [])
+    if ungrouped:
+        lines.append("Ungrouped:")
+        for n in ungrouped:
+            lines.append(f'  - {n.id} ({n.created_by}, {n.type}): "{n.content}"')
+    return "\n".join(lines)
 
 
-def _next_position(db: Session, near_node_id: str | None) -> dict:
-    nodes, _ = crud.get_board(db)
+def _next_position(db: Session, parent_id: str | None, near_node_id: str | None) -> dict:
+    nodes = crud.get_board(db)
+
+    if parent_id:
+        frame = crud.get_node(db, parent_id)
+        siblings = [n for n in nodes if n.parent_id == parent_id]
+        if frame:
+            bx = frame.x + FRAME_PADDING
+            by = frame.y + FRAME_PADDING + len(siblings) * 90
+            return {"x": bx, "y": by}
+
     by_id = {n.id: n for n in nodes}
-
     if near_node_id and near_node_id in by_id:
         origin = by_id[near_node_id]
         bx, by = origin.x, origin.y
@@ -149,18 +191,19 @@ def _next_position(db: Session, near_node_id: str | None) -> dict:
 
 async def _execute_tool(db: Session, name: str, args: dict, send: Send) -> dict:
     if name == "add_node":
+        parent_id = args.get("parent_id")
+        if parent_id and not crud.get_node(db, parent_id):
+            parent_id = None
         temp_id = f"tmp-{uuid.uuid4().hex[:8]}"
-        pos = _next_position(db, args.get("near_node_id"))
+        pos = _next_position(db, parent_id, args.get("near_node_id"))
         await send({"type": "node_thinking", "tempId": temp_id, **pos})
         await asyncio.sleep(0.5)  # let the dashed "thinking" state actually be seen
 
-        node = crud.create_node(db, content=args["content"], x=pos["x"], y=pos["y"], created_by="agent")
+        node = crud.create_node(
+            db, content=args["content"], x=pos["x"], y=pos["y"],
+            created_by="agent", type=args.get("node_type", "sticky"), parent_id=parent_id,
+        )
         await send({"type": "node_added", "tempId": temp_id, "node": _node_dict(node)})
-
-        near_id = args.get("near_node_id")
-        if near_id and crud.get_node(db, near_id):
-            edge = crud.create_edge(db, source_id=near_id, target_id=node.id)
-            await send({"type": "edge_added", "edge": _edge_dict(edge)})
         return {"status": "ok", "node_id": node.id}
 
     if name == "edit_node":
@@ -176,12 +219,38 @@ async def _execute_tool(db: Session, name: str, args: dict, send: Send) -> dict:
             await send({"type": "node_deleted", "id": args["node_id"]})
         return {"status": "ok" if ok else "error", "message": None if ok else "node not found"}
 
-    if name == "link_nodes":
-        if not (crud.get_node(db, args["source_id"]) and crud.get_node(db, args["target_id"])):
-            return {"status": "error", "message": "source or target not found"}
-        edge = crud.create_edge(db, args["source_id"], args["target_id"])
-        await send({"type": "edge_added", "edge": _edge_dict(edge)})
-        return {"status": "ok", "edge_id": edge.id}
+    if name == "create_frame":
+        node_ids = args.get("node_ids") or []
+        members = [crud.get_node(db, nid) for nid in node_ids]
+        members = [m for m in members if m]
+
+        if members:
+            fx = min(m.x for m in members) - FRAME_PADDING
+            fy = min(m.y for m in members) - FRAME_PADDING
+        else:
+            fx, fy = _next_position(db, None, None).values()
+
+        frame = crud.create_node(
+            db, content=args["label"], x=fx, y=fy,
+            created_by="agent", type="frame", parent_id=None,
+        )
+        await send({"type": "node_added", "tempId": None, "node": _node_dict(frame)})
+
+        for m in members:
+            updated = crud.update_node(db, m.id, parent_id=frame.id)
+            await send({"type": "node_updated", "node": _node_dict(updated)})
+
+        return {"status": "ok", "frame_id": frame.id}
+
+    if name == "move_node":
+        parent_id = args.get("parent_id")
+        if parent_id and not crud.get_node(db, parent_id):
+            return {"status": "error", "message": "parent frame not found"}
+        node = crud.update_node(db, args["node_id"], parent_id=parent_id, set_parent_id=True)
+        if not node:
+            return {"status": "error", "message": "node not found"}
+        await send({"type": "node_updated", "node": _node_dict(node)})
+        return {"status": "ok"}
 
     return {"status": "error", "message": f"unknown tool '{name}'"}
 
@@ -197,17 +266,15 @@ async def _stream_text(text: str, send: Send) -> None:
 
 
 def _node_dict(n) -> dict:
-    return {"id": n.id, "content": n.content, "x": n.x, "y": n.y, "created_by": n.created_by}
-
-
-def _edge_dict(e) -> dict:
-    return {"id": e.id, "source_id": e.source_id, "target_id": e.target_id}
+    return {
+        "id": n.id, "type": n.type, "content": n.content, "data": n.data,
+        "x": n.x, "y": n.y, "created_by": n.created_by, "parent_id": n.parent_id,
+    }
 
 
 async def run_agent_turn(db: Session, user_message: str, history: list, send: Send) -> str | None:
     """Runs one agentic turn: the model can call tools any number of times (each
     executed and broadcast immediately) before giving a final text reply."""
-    client = get_client()
     messages = [
         {"role": "system", "content": f"{SYSTEM_PROMPT}\n\n{_board_snapshot(db)}"},
         *history,
@@ -215,12 +282,7 @@ async def run_agent_turn(db: Session, user_message: str, history: list, send: Se
     ]
 
     for _ in range(MAX_TOOL_TURNS):
-        response = await asyncio.to_thread(
-            client.chat.completions.create,
-            model=MODEL,
-            messages=messages,
-            tools=TOOLS,
-        )
+        response = await ai_gateway.generate_governed(model=ai_gateway.MODEL, messages=messages, tools=TOOLS)
         message = response.choices[0].message
         tool_calls = message.tool_calls or []
 

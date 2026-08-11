@@ -1,9 +1,12 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue'
+import { X } from 'lucide-vue-next'
 import { useBoardStore } from '../stores/board'
+import { useToolStore } from '../stores/tool'
 import { useAgentChat } from '../composables/useAgentChat'
 
 const board = useBoardStore()
+const tool = useToolStore()
 const { messages, connected, sending, send } = useAgentChat()
 
 const draft = ref('')
@@ -32,8 +35,8 @@ function onKeydown(event) {
 }
 
 function focusWithContext() {
-  if (!board.selectedNode) return
-  contextNode.value = board.selectedNode
+  tool.chatOpen = true
+  if (board.selectedNode) contextNode.value = board.selectedNode
   nextTick(() => inputRef.value?.focus())
 }
 
@@ -41,56 +44,67 @@ defineExpose({ focusWithContext })
 </script>
 
 <template>
-  <aside class="chat-panel">
-    <header class="chat-header">
-      <span class="title">Agent</span>
-      <span class="status" :class="{ connected }">{{ connected ? 'online' : 'connecting…' }}</span>
-    </header>
+  <transition name="pop">
+    <aside v-if="tool.chatOpen" class="chat-popover">
+      <header class="chat-header">
+        <span class="title">Agent</span>
+        <span class="status" :class="{ connected }">{{ connected ? 'online' : 'connecting…' }}</span>
+        <button type="button" class="close-btn" @click="tool.chatOpen = false"><X :size="16" /></button>
+      </header>
 
-    <div class="chat-messages" ref="listRef">
-      <p v-if="!messages.length" class="empty-hint">
-        Ask the agent to brainstorm, research, or tidy up — it places ideas straight on the board.
-      </p>
-      <div v-for="(m, i) in messages" :key="i" class="message" :class="m.role">
-        {{ m.content }}
+      <div class="chat-messages" ref="listRef">
+        <p v-if="!messages.length" class="empty-hint">
+          Ask the agent to brainstorm, research, or tidy up — it places ideas straight on the board.
+        </p>
+        <div v-for="(m, i) in messages" :key="i" class="message" :class="m.role">
+          {{ m.content }}
+        </div>
       </div>
-    </div>
 
-    <div class="chat-input">
-      <div v-if="contextNode" class="context-chip">
-        <span>re: {{ contextNode.content || 'this idea' }}</span>
-        <button type="button" @click="contextNode = null">×</button>
+      <div class="chat-input">
+        <div v-if="contextNode" class="context-chip">
+          <span>re: {{ contextNode.content || 'this idea' }}</span>
+          <button type="button" @click="contextNode = null">×</button>
+        </div>
+        <div class="input-row">
+          <textarea
+            ref="inputRef"
+            v-model="draft"
+            rows="1"
+            placeholder="Brainstorm with the agent… (⌘J to reference a node)"
+            @keydown="onKeydown"
+          />
+          <button type="button" class="send-btn" :disabled="!draft.trim() || sending" @click="submit">
+            {{ sending ? '···' : 'Send' }}
+          </button>
+        </div>
       </div>
-      <div class="input-row">
-        <textarea
-          ref="inputRef"
-          v-model="draft"
-          rows="1"
-          placeholder="Brainstorm with the agent… (⌘J to reference a selected node)"
-          @keydown="onKeydown"
-        />
-        <button type="button" class="send-btn" :disabled="!draft.trim() || sending" @click="submit">
-          {{ sending ? '···' : 'Send' }}
-        </button>
-      </div>
-    </div>
-  </aside>
+    </aside>
+  </transition>
 </template>
 
 <style scoped>
-.chat-panel {
+.chat-popover {
+  position: absolute;
+  bottom: 84px;
+  right: 20px;
+  width: 340px;
+  height: 460px;
   display: flex;
   flex-direction: column;
-  min-height: 0;
   background: var(--surface);
-  border-left: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  z-index: 25;
 }
 
 .chat-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -106,17 +120,7 @@ defineExpose({ focusWithContext })
   color: var(--muted);
 }
 
-.status.connected::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #2fae60;
-  margin-right: 5px;
-}
-
-.status:not(.connected)::before {
+.status::before {
   content: '';
   display: inline-block;
   width: 6px;
@@ -126,10 +130,22 @@ defineExpose({ focusWithContext })
   margin-right: 5px;
 }
 
+.status.connected::before {
+  background: #2fae60;
+}
+
+.close-btn {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -174,7 +190,7 @@ defineExpose({ focusWithContext })
 
 .chat-input {
   border-top: 1px solid var(--border);
-  padding: 12px;
+  padding: 10px;
 }
 
 .context-chip {
@@ -241,5 +257,15 @@ textarea:focus {
   background: var(--border);
   color: var(--muted);
   cursor: not-allowed;
+}
+
+.pop-enter-active,
+.pop-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.pop-enter-from,
+.pop-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 </style>

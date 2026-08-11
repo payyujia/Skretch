@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -28,18 +28,23 @@ app.add_middleware(
 
 @app.get("/api/board", response_model=schemas.BoardOut)
 def read_board(db: Session = Depends(get_db)):
-    nodes, edges = crud.get_board(db)
-    return {"nodes": nodes, "edges": edges}
+    nodes = crud.get_board(db)
+    return {"nodes": nodes}
 
 
 @app.post("/api/nodes", response_model=schemas.NodeOut)
 def create_node(payload: schemas.NodeCreate, db: Session = Depends(get_db)):
-    return crud.create_node(db, payload.content, payload.x, payload.y, payload.created_by)
+    return crud.create_node(
+        db, content=payload.content, x=payload.x, y=payload.y,
+        created_by=payload.created_by, type=payload.type, data=payload.data,
+        parent_id=payload.parent_id,
+    )
 
 
 @app.patch("/api/nodes/{node_id}", response_model=schemas.NodeOut)
 def update_node(node_id: str, payload: schemas.NodeUpdate, db: Session = Depends(get_db)):
-    node = crud.update_node(db, node_id, **payload.model_dump(exclude_none=True))
+    fields = payload.model_dump(exclude_none=True, exclude={"set_parent_id"})
+    node = crud.update_node(db, node_id, set_parent_id=payload.set_parent_id, **fields)
     if not node:
         raise HTTPException(status_code=404, detail="node not found")
     return node
@@ -51,21 +56,10 @@ def delete_node(node_id: str, db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
-@app.post("/api/edges", response_model=schemas.EdgeOut)
-def create_edge(payload: schemas.EdgeCreate, db: Session = Depends(get_db)):
-    return crud.create_edge(db, payload.source_id, payload.target_id)
-
-
-@app.delete("/api/edges/{edge_id}")
-def delete_edge(edge_id: str, db: Session = Depends(get_db)):
-    crud.delete_edge(db, edge_id)
-    return {"status": "ok"}
-
-
 @app.websocket("/ws/chat")
 async def chat_ws(ws: WebSocket):
     """One user message in, a stream of {type: ...} events out: node_thinking,
-    node_added, node_updated, node_deleted, edge_added, token, message_done, error."""
+    node_added, node_updated, node_deleted, token, message_done, error."""
     await ws.accept()
     db = next(get_db())
     history: list[dict] = []
@@ -82,11 +76,11 @@ async def chat_ws(ws: WebSocket):
 
             try:
                 reply = await agent.run_agent_turn(db, user_message, history, send)
-            except RuntimeError as e:  # missing API key, bad request, etc.
-                logger.exception("agent turn failed")
+            except RuntimeError as e:  # missing key, quota exhausted, rate-limited after retries, etc.
+                logger.warning("agent turn failed: %s", e)
                 await send({"type": "error", "message": str(e)})
                 continue
-            except Exception as e:
+            except Exception:
                 logger.exception("agent turn failed")
                 await send({"type": "error", "message": "The agent hit an unexpected error."})
                 continue

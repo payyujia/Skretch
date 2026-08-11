@@ -1,20 +1,15 @@
 <script setup>
-import { ref } from 'vue'
 import Canvas from './components/Canvas.vue'
-import ChatPanel from './components/ChatPanel.vue'
-
-const chatPanel = ref(null)
 </script>
 
 <template>
   <div class="app-shell">
     <header class="topbar">
       <span class="wordmark">Skretch</span>
-      <span class="tagline">think out loud, ship the doc</span>
+      <span class="tagline">Cast a wider net</span>
     </header>
     <main class="app-body">
-      <Canvas @ask-ai="chatPanel?.focusWithContext()" />
-      <ChatPanel ref="chatPanel" />
+      <Canvas />
     </main>
   </div>
 </template>
@@ -51,15 +46,6 @@ const chatPanel = ref(null)
 
 .app-body {
   flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 360px;
   min-height: 0;
-}
-
-@media (max-width: 860px) {
-  .app-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr 320px;
-  }
 }
 </style>
