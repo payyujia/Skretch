@@ -24,15 +24,7 @@ const EDIT_ON_CREATE_TYPES = new Set(['document'])
  * a member of it. There's no separate edge/link concept anymore — frames
  * are the only relationship the board (or the agent) has.
  *
- * Two creation paths:
- *  - notes use spawnNode/spawnFrom + commitNode: an optimistic local draft
- *    that only hits the backend once it has real content (and is discarded
- *    if left empty) — this is what keeps the keyboard-driven Enter-chain
- *    instant.
- *  - every other node type (including freehand strokes and frames) is
- *    created immediately with real data via createNodeOfType/
- *    createStrokeNode, since there's no meaningful "empty draft" state for
- *    those.
+ * 1 creation path:createnodeoftype
  */
 export const useBoardStore = defineStore('board', {
   state: () => ({
@@ -67,21 +59,6 @@ export const useBoardStore = defineStore('board', {
         n.parentId = n.parent_id ? (byServerId.get(n.parent_id)?.id ?? null) : null
       }
       this.nodes = withoutParent
-    },
-
-    // --- notes: local-first optimistic draft ---
-    spawnNode({ x, y, createdBy = 'user', parentId = null } = {}) {
-      const id = clientId('local')
-      this.nodes.push({ id, serverId: null, type: 'note', content: '', data: {}, x, y, parentId, createdBy, thinking: false, justPlaced: false })
-      this.selectedNodeId = id
-      this.editingNodeId = id
-      return id
-    },
-
-    spawnFrom(originId, direction) {
-      const origin = this.nodes.find((n) => n.id === originId)
-      const pos = origin ? nextPosition(origin, direction, this.nodes) : defaultSpawnPosition()
-      return this.spawnNode({ x: pos.x, y: pos.y, parentId: origin?.parentId ?? null })
     },
 
     setContentLocal(id, content) {

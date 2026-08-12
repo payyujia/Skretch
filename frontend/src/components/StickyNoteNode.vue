@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { Trash2 } from 'lucide-vue-next'
 import { useBoardStore } from '../stores/board'
-
+import { colorOptions } from '../utils/nodeTypes'
 const props = defineProps({
   id: { type: String, required: true },
   data: { type: Object, required: true },
@@ -10,14 +10,6 @@ const props = defineProps({
 
 const board = useBoardStore()
 const textareaRef = ref(null)
-
-const colorOptions = [
-  { name: 'purple', hex: 'rgb(216 180 254)' },
-  { name: 'yellow', hex: 'rgb(252 211 77)' },
-  { name: 'mint', hex: 'rgb(110 231 183)' },
-  { name: 'blue', hex: 'rgb(125 211 252)' },
-  { name: 'coral', hex: 'rgb(253 164 175)' },
-]
 
 const reactionOptions = ['👍', '👎', '🔥', '🤡', '❤️']
 
@@ -36,10 +28,9 @@ const noteColor = computed(() => {
 })
 
 const currentColorName = computed(() => props.data.data?.color ?? colorOptions[0].name)
-
 const reactions = computed(() => props.data.data?.reactions || {})
-
 const reactionEntries = computed(() => Object.entries(reactions.value).filter(([, count]) => count > 0))
+const rotation = computed(() => props.data.data?.rotation ?? 0)
 
 function selectColor(color) {
   board.checkpoint()
@@ -74,8 +65,6 @@ async function onKeydown(event) {
     event.preventDefault()
     board.checkpoint()
     await board.commitNode(props.id, content.value)
-    board.spawnFrom(props.id, 'down')
-  
   } else if (event.key === 'Escape') {
     event.preventDefault()
     board.checkpoint()
@@ -104,12 +93,12 @@ function onDoubleClick() {
   <div
     class="board-node sticky-note"
     :class="{ agent: isAgent, selected: isSelected, editing: isEditing, thinking: data.thinking, 'just-placed': data.justPlaced }"
-    :style="{ backgroundColor:`color-mix(in oklab, ${noteColor}, white 50%)`, borderTopColor: noteColor}"
+    :style="{ backgroundColor:`color-mix(in oklab, ${noteColor}, white 50%)`,transform: `rotate(${rotation}deg)`, borderTopColor: noteColor}"
     @dblclick.stop="onDoubleClick"
   >
     <span v-if="isAgent" class="node-badge">AI</span>
     <div class="header">
-      <span>◍ @{{data.created_by}}</span>
+      <span>◍ @{{ data.createdBy }}</span>
       <div class="color-picker">
         <button
           v-for="option in colorOptions"
@@ -173,7 +162,6 @@ function onDoubleClick() {
   flex-direction: column;
   gap: .375rem;
   filter: brightness(1.1);
-
   transition: filter 0.2s ease, box-shadow 0.2s ease;
 }
 .sticky-note:hover { 
@@ -198,17 +186,6 @@ function onDoubleClick() {
 .sticky-note:hover .color-picker {
   opacity: 1;
   visibility: visible;
-}
-
-.color-swatch {
-  height: 0.8rem;
-  border-radius: 1rem;
-  border: 1px solid var(--border);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.color-swatch.active {
-  box-shadow: 0 0 0 1px var(--user-accent );
 }
 
 .node-text {

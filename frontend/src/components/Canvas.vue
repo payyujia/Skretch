@@ -6,6 +6,7 @@ import { Controls } from '@vue-flow/controls'
 import StickyNoteNode from './StickyNoteNode.vue'
 import Toolbar from './Toolbar.vue'
 import ChatPopover from './ChatPopover.vue'
+import FrameNode from './Frame.vue'
 import { useBoardStore } from '../stores/board'
 import { useToolStore } from '../stores/tool'
 import { defaultSpawnPosition } from '../utils/layout'
@@ -14,27 +15,108 @@ import { defaultSpawnPosition } from '../utils/layout'
 
 const board = useBoardStore()
 const tool = useToolStore()
-const { screenToFlowCoordinate } = useVueFlow()
+const { screenToFlowCoordinate, findNode } = useVueFlow()
 const hoveredNodeId = ref(null)
 const chatRef = ref(null)
+
+// Frames render behind everything else — pin a low zIndex on frame-type
+// nodes so members painted after them (or later in the array) never end up
+// visually trapped under a frame's own hit area.
+const FRAME_Z_INDEX = 0
+const NODE_Z_INDEX = 1
+
+// Fallback size used for a node's hit-box when Vue Flow hasn't measured its
+// real DOM dimensions yet (e.g. the very first drag tick, or a node that's
+// still off-screen). Close enough for containment checks; once the node has
+// rendered, findNode(id).dimensions gives the real size instead.
+const DEFAULT_NODE_SIZE = { width: 240, height: 120 }
 
 const flowNodes = computed(() =>
   board.nodes.map((n) => ({
     id: n.id,
     type: n.type,
     position: { x: n.x, y: n.y },
+    zIndex: n.type === 'frame' ? FRAME_Z_INDEX : NODE_Z_INDEX,
     data: n,
     draggable: !n.thinking && tool.active === 'select',
     connectable: Boolean(n.serverId),
   }))
 )
 
+// --- geometric containment (frame <-> member) ---
+
+function frameRect(frameBoardNode) {
+  return {
+    x: frameBoardNode.x,
+    y: frameBoardNode.y,
+    width: frameBoardNode.data?.width ?? 500,
+    height: frameBoardNode.data?.height ?? 700,
+  }
+}
+
+function nodeCenter(nodeId) {
+  const boardNode = board.nodes.find((n) => n.id === nodeId)
+  if (!boardNode) return null
+  const measured = findNode(nodeId)?.dimensions
+  const width = measured?.width || DEFAULT_NODE_SIZE.width
+  const height = measured?.height || DEFAULT_NODE_SIZE.height
+  return { x: boardNode.x + width / 2, y: boardNode.y + height / 2 }
+}
+
+function pointInRect(point, rect) {
+  return (
+    point.x >= rect.x && point.x <= rect.x + rect.width &&
+    point.y >= rect.y && point.y <= rect.y + rect.height
+  )
+}
+
+/** Re-derive a single (non-frame) node's parent from where its center
+ * currently sits — dropped inside a frame's bounds it joins that frame,
+ * dragged back out it's freed. Runs after every drag of that node. */
+function reconcileNodeParent(nodeId) {
+  const node = board.nodes.find((n) => n.id === nodeId)
+  if (!node || node.type === 'frame') return
+  const center = nodeCenter(nodeId)
+  if (!center) return
+
+  const frames = board.nodes.filter((n) => n.type === 'frame')
+  const containing = frames.find((f) => pointInRect(center, frameRect(f)))
+  const targetId = containing?.id ?? null
+  if (node.parentId !== targetId) board.reparentNode(nodeId, targetId)
+}
+
+/** After a frame itself moves, any member left outside its new bounds is
+ * freed rather than dragged along — we don't auto-follow the frame, only
+ * auto-detect containment, per the same rule a fresh drag would apply. */
+function reconcileFrameMembers(frameId) {
+  const frame = board.nodes.find((n) => n.id === frameId)
+  if (!frame) return
+  const rect = frameRect(frame)
+  for (const node of board.nodes.filter((n) => n.type !== 'frame' && n.id !== frameId)) {
+    const center = nodeCenter(node.id)
+    const inside = center && pointInRect(center, rect)
+    const shouldBelong = inside ? frameId : (node.parentId === frameId ? null : node.parentId)
+    if (node.parentId !== shouldBelong) board.reparentNode(node.id, shouldBelong)
+  }
+}
+
 function onNodeDragStop({ node }) {
   board.checkpoint()
   board.moveNode(node.id, node.position.x, node.position.y)
+  if (node.type === 'frame') reconcileFrameMembers(node.id)
+  else reconcileNodeParent(node.id)
 }
 
-function onNodeClick({ node }) {
+function onNodeClick({ node, event }) {
+  // Clicking a frame's body with a node tool armed creates the new node
+  // inside that frame, rather than just selecting the frame — otherwise the
+  // frame's own hit area (it fills its whole rect, background or not)
+  // swallows clicks and the "nodes" tool becomes unusable anywhere inside one.
+  if (tool.active === 'nodes' && tool.pendingNodeType && node.type === 'frame') {
+    const pos = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+    board.createNodeOfType(tool.pendingNodeType, pos.x, pos.y, 'user', node.id)
+    return
+  }
   if (tool.active === 'select') board.select(node.id)
 }
 
@@ -57,14 +139,6 @@ function onPaneClick(event) {
     return
   }
   if (tool.active === 'select') board.deselect()
-}
-
-function onPaneDoubleClick(event) {
-  if (tool.active !== 'select') return
-  if (event.target.closest('.vue-flow__node')) return
-  board.checkpoint()
-  const pos = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
-  board.spawnNode(pos)
 }
 
 async function onPaste(event) {
@@ -97,14 +171,6 @@ function handleKeydown(event) {
     board.undo()
   } else if (event.key.toLowerCase() === 'v' && !meta) {
     tool.setSelect()
-  } else if (event.key === 'Enter' && board.selectedNodeId && !board.editingNodeId) {
-    event.preventDefault()
-    board.checkpoint()
-    board.spawnFrom(board.selectedNodeId, event.shiftKey ? 'side' : 'down')
-  } else if (event.key === 'Enter') {
-    event.preventDefault()
-    board.checkpoint()
-    board.spawnNode(defaultSpawnPosition())
   } else if ((event.key === 'Delete' || event.key === 'Backspace') && board.selectedNodeId && !board.editingNodeId) {
     event.preventDefault()
     board.checkpoint()
@@ -146,7 +212,9 @@ onUnmounted(() => {
     >
       <template #node-sticky="props"><StickyNoteNode v-bind="props" /></template>
       <template #node-image="props"><ImageNode v-bind="props" /></template>
-      <Background variant="dots" :gap="28" :size="1.6" color="var(--canvas-dot)" />
+      <template #node-frame="props"><FrameNode v-bind="props" @resize-end="reconcileFrameMembers(props.id)" /></template>
+
+      <Background variant="dots" :gap="28" :size="3" color="var(--canvas-dot)" />
       <Controls :show-interactive="false" position="bottom-left" />
     </VueFlow>
 

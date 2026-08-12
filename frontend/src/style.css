@@ -1,6 +1,6 @@
 :root {
-  --canvas-bg: #f7f8fa;
-  --canvas-dot: #dfe3e8;
+  --canvas-bg: #F7FAFB;
+  --canvas-dot: #DBE2EA;
   --ink: #1c1f26;
   --muted: #6b7280;
   --surface: #ffffff;
@@ -125,6 +125,16 @@ textarea {
 .node-remove:hover {
   color:var(--danger);
   background-color: var(--surface);
+}
+.color-swatch {
+  height: 0.8rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.color-swatch.active {
+  box-shadow: 0 0 0 1px var(--user-accent );
 }
 
 .node-typing-dots {

@@ -35,6 +35,7 @@ Guidelines:
   conversational sentence about what you did or what you're noticing.
 - If the user is just chatting and there's nothing board-worthy yet, it's fine to \
   reply with no tool calls at all.
+  
 """
 
 TOOLS = [
