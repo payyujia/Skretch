@@ -41,3 +41,9 @@ class BoardOut(BaseModel):
 
 class ImageUploadOut(BaseModel):
     url: str
+
+
+class DocumentUploadOut(BaseModel):
+    doc_name: str
+    chunk_count: int
+    board_id: str

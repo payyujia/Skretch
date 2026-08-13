@@ -1,9 +1,10 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue'
-import { X } from 'lucide-vue-next'
+import { X, Paperclip, FileText, Loader2 } from 'lucide-vue-next'
 import { useBoardStore } from '../stores/board'
 import { useToolStore } from '../stores/tool'
 import { useAgentChat } from '../composables/useAgentChat'
+import { uploadDocument, deleteDocument } from '../api/client'
 
 const board = useBoardStore()
 const tool = useToolStore()
@@ -14,6 +15,10 @@ const inputRef = ref(null)
 const listRef = ref(null)
 const contextNode = ref(null)
 
+// Document attachment state
+const fileInputRef = ref(null)
+const attachedDocs = ref([]) // [{ name: string, uploading: boolean, error: string|null }]
+
 watch(
   messages,
   () => nextTick(() => { if (listRef.value) listRef.value.scrollTop = listRef.value.scrollHeight }),
@@ -22,7 +27,10 @@ watch(
 
 function submit() {
   if (!draft.value.trim() || sending.value) return
-  send(draft.value, contextNode.value)
+  const docNames = attachedDocs.value
+    .filter(d => !d.uploading && !d.error)
+    .map(d => d.name)
+  send(draft.value, contextNode.value, docNames)
   draft.value = ''
   contextNode.value = null
 }
@@ -40,6 +48,33 @@ function focusWithContext() {
   nextTick(() => inputRef.value?.focus())
 }
 
+// ── Document handling ─────────────────────────────────────────────────────────
+
+function openFilePicker() {
+  fileInputRef.value?.click()
+}
+
+async function onFileSelected(event) {
+  const files = Array.from(event.target.files || [])
+  event.target.value = '' // reset so same file can be re-uploaded
+  for (const file of files) {
+    const entry = { name: file.name, uploading: true, error: null }
+    attachedDocs.value.push(entry)
+    try {
+      await uploadDocument(file, 'default')
+      entry.uploading = false
+    } catch (err) {
+      entry.uploading = false
+      entry.error = err.message || 'Upload failed'
+    }
+  }
+}
+
+function removeDoc(name) {
+  attachedDocs.value = attachedDocs.value.filter(d => d.name !== name)
+  deleteDocument(name, 'default').catch(() => {/* best-effort */})
+}
+
 defineExpose({ focusWithContext })
 </script>
 
@@ -55,6 +90,7 @@ defineExpose({ focusWithContext })
       <div class="chat-messages" ref="listRef">
         <p v-if="!messages.length" class="empty-hint">
           Ask the agent to brainstorm, research, or tidy up — it places ideas straight on the board.
+          Upload project docs below to let it reference your specs.
         </p>
         <div v-for="(m, i) in messages" :key="i" class="message" :class="m.role">
           {{ m.content }}
@@ -62,11 +98,48 @@ defineExpose({ focusWithContext })
       </div>
 
       <div class="chat-input">
+        <!-- Context chip (selected node) -->
         <div v-if="contextNode" class="context-chip">
           <span>re: {{ contextNode.content || 'this idea' }}</span>
           <button type="button" @click="contextNode = null">×</button>
         </div>
+
+        <!-- Document chips -->
+        <div v-if="attachedDocs.length" class="doc-chips">
+          <div
+            v-for="doc in attachedDocs"
+            :key="doc.name"
+            class="doc-chip"
+            :class="{ uploading: doc.uploading, error: doc.error }"
+          >
+            <Loader2 v-if="doc.uploading" :size="12" class="spin" />
+            <FileText v-else :size="12" />
+            <span class="doc-chip-name" :title="doc.name">{{ doc.name }}</span>
+            <button v-if="!doc.uploading" type="button" class="doc-chip-remove" @click="removeDoc(doc.name)">×</button>
+          </div>
+        </div>
+
         <div class="input-row">
+          <!-- Hidden file input -->
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept=".pdf,.docx,.doc,.txt"
+            multiple
+            style="display:none"
+            @change="onFileSelected"
+          />
+
+          <!-- Attach button -->
+          <button
+            type="button"
+            class="attach-btn"
+            title="Attach project document (PDF, DOCX, TXT)"
+            @click="openFilePicker"
+          >
+            <Paperclip :size="16" />
+          </button>
+
           <textarea
             ref="inputRef"
             v-model="draft"
@@ -89,7 +162,7 @@ defineExpose({ focusWithContext })
   bottom: 84px;
   right: 20px;
   width: 340px;
-  height: 460px;
+  height: 480px;
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -191,6 +264,9 @@ defineExpose({ focusWithContext })
 .chat-input {
   border-top: 1px solid var(--border);
   padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .context-chip {
@@ -202,7 +278,6 @@ defineExpose({ focusWithContext })
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 999px;
-  margin-bottom: 8px;
   max-width: 100%;
 }
 
@@ -221,10 +296,91 @@ defineExpose({ focusWithContext })
   padding: 0;
 }
 
+/* Doc chips row */
+.doc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.doc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 8px 3px 6px;
+  font-size: 11.5px;
+  color: var(--ink);
+  max-width: 160px;
+}
+
+.doc-chip.uploading {
+  opacity: 0.65;
+  border-style: dashed;
+}
+
+.doc-chip.error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.doc-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100px;
+}
+
+.doc-chip-remove {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.doc-chip-remove:hover {
+  color: var(--danger);
+}
+
+/* Spinning loader icon */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .input-row {
   display: flex;
   gap: 8px;
   align-items: flex-end;
+}
+
+.attach-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: var(--radius);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.attach-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
 textarea {

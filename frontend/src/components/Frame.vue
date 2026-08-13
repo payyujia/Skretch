@@ -15,7 +15,7 @@ const inputRef = ref(null)
 const resizing = ref(false)
 
 const isEditing = computed(() => board.editingNodeId === props.id)
-
+const isSelected = computed(() => board.selectedNodeId === props.id)
 const header = computed(() => {
   const raw = props.data.content ?? ''
   const commaIdx = raw.indexOf(',')
@@ -98,12 +98,11 @@ function onResizeStart(event) {
 <template>
   <div
     class="board-node frame"
-    :class="[{ resizing }]"
+    :class="[{ selected: isSelected,resizing }]"
     :style="{ width: `${width}px`, height: `${height}px`, '--frame-color': colorHex }"
-    @dblclick.stop="startEditing"
   >
     <div class="frame-top">
-      <div class="frame-label">
+      <div class="frame-label" @dblclick.stop="startEditing">
         <div class="frame-header-row">
           ◍
           <input
@@ -117,7 +116,7 @@ function onResizeStart(event) {
             @pointerdown.stop
           />
           <span v-else class="frame-header" :class="{ empty: !header }">
-            {{ header || 'Header' }}
+            {{ header || 'Big idea' }}
           </span>
         </div>
         
@@ -134,7 +133,6 @@ function onResizeStart(event) {
         </button>
       </div>
     </div>
-
     <div class="frame-resize-handle nodrag" @pointerdown="onResizeStart" />
   </div>
 </template>
@@ -142,12 +140,17 @@ function onResizeStart(event) {
 <style scoped>
 .frame {
   background: transparent;
-  border: 2px dashed color-mix(in oklab, var(--frame-color), transparent 35%);
+  border: 5px dotted color-mix(in oklab, var(--frame-color), transparent 35%);
   box-shadow: none;
   padding: 0;
   z-index: 0;
 }
-
+.frame.selected {
+  z-index: -10 !important;
+  /* keep it below other nodes */
+  outline:none;
+}
+ 
 .frame.resizing {
   border-style: solid;
 }
@@ -194,7 +197,7 @@ function onResizeStart(event) {
   font-weight: 900;
   font-size: 1.5rem;
   line-height: 2rem;
-  color: var(--frame-color);
+  color: color-mix(in oklch, var(--frame-color) 100%, black 20%);
 }
 
 .frame-header.empty {
@@ -206,7 +209,7 @@ function onResizeStart(event) {
 .frame-subheader {
   font-family: var(--font-body);
   font-size: small;
-  color: var(--muted);
+  color: var(--ink);
 }
 
 .frame-label-input {
@@ -217,6 +220,7 @@ function onResizeStart(event) {
   border: none;
   background: transparent;
   outline: none;
+  text-decoration: underline dashed;
   min-width: 250px;
   padding: 0;
 }

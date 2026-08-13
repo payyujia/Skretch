@@ -175,22 +175,31 @@ export const useBoardStore = defineStore('board', {
     },
 
     // --- live events from the agent's websocket ---
-    applyThinking({ tempId, x, y, parentId = null }) {
-      this.nodes.push({ id: tempId, serverId: null, type: 'note', content: '', data: {}, x, y, parentId, createdBy: 'agent', thinking: true, justPlaced: false })
+    applyThinking({ tempId, x, y, parentId = null, nodeType = 'sticky' }) {
+      this.nodes.push({ id: tempId, serverId: null, type: nodeType, content: '', data: {}, x, y, parentId, createdBy: 'agent', thinking: true, justPlaced: false })
     },
 
     applyPlaced({ tempId, node }) {
-      const local = this.nodes.find((n) => n.id === tempId)
-      if (!local) return
+      let local = tempId ? this.nodes.find((n) => n.id === tempId) : null
+      if (!local) {
+        local = {
+          id: clientId(node.type), serverId: null, type: node.type, content: '',
+          data: {}, x: node.x, y: node.y, parentId: null,
+          createdBy: node.createdBy, thinking: false, justPlaced: false,
+        }
+        this.nodes.push(local)
+      }
+
       local.serverId = node.id
       local.type = node.type
       local.content = node.content
       local.data = node.data
       local.x = node.x
       local.y = node.y
-      local.parentId = node.parent_id ? (this.byServerId(node.parent_id)?.id ?? null) : null
+      local.parentId = node.parentId ? (this.byServerId(node.parentId)?.id ?? null) : null
       local.thinking = false
       local.justPlaced = true
+      local.createdBy = node.createdBy ?? local.createdBy
       setTimeout(() => { local.justPlaced = false }, 900)
     },
 
@@ -201,7 +210,8 @@ export const useBoardStore = defineStore('board', {
       local.data = node.data
       local.x = node.x
       local.y = node.y
-      local.parentId = node.parent_id ? (this.byServerId(node.parent_id)?.id ?? null) : null
+      local.parentId = node.parentId ? (this.byServerId(node.parentId)?.id ?? null) : null
+      local.createdBy = node.createdBy ?? local.createdBy
     },
 
     applyDeleted({ id }) {

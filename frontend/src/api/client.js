@@ -14,15 +14,28 @@ export const createNode = (data) => request('/api/nodes', { method: 'POST', body
 export const updateNode = (id, data) => request(`/api/nodes/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteNode = (id) => request(`/api/nodes/${id}`, { method: 'DELETE' })
 
-// Multipart upload — deliberately bypasses `request()`, which always sets a
-// JSON content-type that would break the multipart boundary.
-// export async function uploadImage(file) {
-//   const formData = new FormData()
-//   formData.append('file', file)
-//   const res = await fetch(`${BASE}/api/uploads/image`, { method: 'POST', body: formData })
-//   if (!res.ok) {
-//     const body = await res.json().catch(() => ({}))
-//     throw new Error(body.detail || `Upload failed (${res.status})`)
-//   }
-//   return res.json() // { url }
-// }
+// ── Document / RAG endpoints ──────────────────────────────────────────────────
+
+/**
+ * Upload a project document for RAG retrieval.
+ * Deliberately bypasses request() to avoid setting Content-Type on multipart.
+ */
+export async function uploadDocument(file, boardId = 'default') {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('board_id', boardId)
+  const res = await fetch(`${BASE}/api/documents`, { method: 'POST', body: formData })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || `Upload failed (${res.status})`)
+  }
+  return res.json() // { doc_name, chunk_count, board_id }
+}
+
+export const getDocuments = (boardId = 'default') =>
+  request(`/api/documents?board_id=${encodeURIComponent(boardId)}`)
+
+export const deleteDocument = (docName, boardId = 'default') =>
+  request(`/api/documents/${encodeURIComponent(docName)}?board_id=${encodeURIComponent(boardId)}`, {
+    method: 'DELETE',
+  })

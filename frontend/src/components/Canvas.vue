@@ -21,7 +21,10 @@ const chatRef = ref(null)
 
 // Frames render behind everything else — pin a low zIndex on frame-type
 // nodes so members painted after them (or later in the array) never end up
-// visually trapped under a frame's own hit area.
+// visually trapped under a frame's own hit area. This only holds if Vue
+// Flow's `elevateNodesOnSelect` (on by default) is turned off on the
+// <VueFlow> element below — otherwise selecting a frame force-bumps it back
+// above its members regardless of this zIndex.
 const FRAME_Z_INDEX = 0
 const NODE_Z_INDEX = 1
 
@@ -92,11 +95,11 @@ function reconcileFrameMembers(frameId) {
   const frame = board.nodes.find((n) => n.id === frameId)
   if (!frame) return
   const rect = frameRect(frame)
-  for (const node of board.nodes.filter((n) => n.type !== 'frame' && n.id !== frameId)) {
-    const center = nodeCenter(node.id)
-    const inside = center && pointInRect(center, rect)
-    const shouldBelong = inside ? frameId : (node.parentId === frameId ? null : node.parentId)
-    if (node.parentId !== shouldBelong) board.reparentNode(node.id, shouldBelong)
+  for (const child of board.childrenOf(frameId)) {
+    const center = nodeCenter(child.id)
+    if (!center || !pointInRect(center, rect)) {
+      board.reparentNode(child.id, null)
+    }
   }
 }
 
@@ -121,6 +124,10 @@ function onNodeClick({ node, event }) {
 }
 
 function onNodeDoubleClick({ node }) {
+  // Frames own their own double-click target (just the header label) so the
+  // whole frame body isn't a giant edit-trigger hitbox — handled locally in
+  // Frame.vue instead.
+  if (node.type === 'frame') return
   if (tool.active === 'select') board.startEditing(node.id)
 }
 
@@ -203,6 +210,7 @@ onUnmounted(() => {
       :min-zoom="0.3"
       :max-zoom="1.75"
       :nodes-connectable="true"
+      :elevate-nodes-on-select="false"
       @node-drag-stop="onNodeDragStop"
       @node-click="onNodeClick"
       @node-double-click="onNodeDoubleClick"
@@ -212,7 +220,7 @@ onUnmounted(() => {
     >
       <template #node-sticky="props"><StickyNoteNode v-bind="props" /></template>
       <template #node-image="props"><ImageNode v-bind="props" /></template>
-      <template #node-frame="props"><FrameNode v-bind="props" @resize-end="reconcileFrameMembers(props.id)" /></template>
+      <template #node-frame="props"><FrameNode v-bind="props" /></template>
 
       <Background variant="dots" :gap="28" :size="3" color="var(--canvas-dot)" />
       <Controls :show-interactive="false" position="bottom-left" />

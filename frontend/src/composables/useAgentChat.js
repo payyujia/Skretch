@@ -1,9 +1,9 @@
 import { ref } from 'vue'
 import { useBoardStore } from '../stores/board'
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/chat'
+const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/chat'
 
-export function useAgentChat() {
+export function useAgentChat(boardId = 'default') {
   const board = useBoardStore()
   const messages = ref([]) // { role: 'user' | 'assistant' | 'system', content, streaming? }
   const connected = ref(false)
@@ -12,7 +12,8 @@ export function useAgentChat() {
   let socket = null
 
   function connect() {
-    socket = new WebSocket(WS_URL)
+    const url = `${WS_BASE}?board_id=${encodeURIComponent(boardId)}`
+    socket = new WebSocket(url)
     socket.onopen = () => { connected.value = true }
     socket.onclose = () => { connected.value = false }
     socket.onerror = () => { connected.value = false }
@@ -52,14 +53,23 @@ export function useAgentChat() {
     }
   }
 
-  function send(text, contextNode) {
+  /**
+   * @param {string} text
+   * @param {object|null} contextNode — board node whose content is being referenced
+   * @param {string[]} attachedDocNames — filenames of uploaded project documents
+   */
+  function send(text, contextNode, attachedDocNames = []) {
     if (!text.trim() || !socket || socket.readyState !== WebSocket.OPEN) return
     const content = contextNode
       ? `[context: node ${contextNode.serverId} — "${contextNode.content}"] ${text}`
       : text
     messages.value.push({ role: 'user', content: text })
     sending.value = true
-    socket.send(JSON.stringify({ content }))
+    socket.send(JSON.stringify({
+      content,
+      board_id: boardId,
+      attached_doc_names: attachedDocNames,
+    }))
   }
 
   connect()

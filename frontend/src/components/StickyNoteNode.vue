@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
-import { Trash2 } from 'lucide-vue-next'
+import { Trash2, Link, FileText, ChevronDown, ChevronUp } from 'lucide-vue-next'
 import { useBoardStore } from '../stores/board'
 import { colorOptions } from '../utils/nodeTypes'
 const props = defineProps({
@@ -11,7 +11,7 @@ const props = defineProps({
 const board = useBoardStore()
 const textareaRef = ref(null)
 
-const reactionOptions = ['👍', '👎', '🔥', '🤡', '❤️']
+const reactionOptions = ['👍', '👎', '🔥', '🤡', '❓']
 
 const isEditing = computed(() => board.editingNodeId === props.id)
 const isSelected = computed(() => board.selectedNodeId === props.id)
@@ -31,6 +31,10 @@ const currentColorName = computed(() => props.data.data?.color ?? colorOptions[0
 const reactions = computed(() => props.data.data?.reactions || {})
 const reactionEntries = computed(() => Object.entries(reactions.value).filter(([, count]) => count > 0))
 const rotation = computed(() => props.data.data?.rotation ?? 0)
+
+const citations = computed(() => props.data.data?.citations || [])
+const docSource = computed(() => props.data.data?.source || null)
+const citationsOpen = ref(false)
 
 function selectColor(color) {
   board.checkpoint()
@@ -98,7 +102,7 @@ function onDoubleClick() {
   >
     <span v-if="isAgent" class="node-badge">AI</span>
     <div class="header">
-      <span>◍ @{{ data.createdBy }}</span>
+      <span>◍ @{{ data.createdBy}}</span>
       <div class="color-picker">
         <button
           v-for="option in colorOptions"
@@ -139,14 +143,43 @@ function onDoubleClick() {
           </span>
         </template>
       </div>
-      <div class="reaction-selector">
-        <button
-          v-for="reaction in reactionOptions"
-          :key="reaction"
-          type="button"
-          class="reaction-button"
-          @click.stop="addReaction(reaction)"
-        >{{ reaction }}</button>
+      <div class="reaction-selector" :class="{ 'has-reactions': reactionEntries.length }">
+          <button
+            v-for="reaction in reactionOptions"
+            :key="reaction"
+            type="button"
+            class="reaction-button"
+            @click.stop="addReaction(reaction)"
+          >{{ reaction }}</button>
+        </div>
+    </div>
+
+    <!-- Source attribution (from RAG document) -->
+    <div v-if="docSource" class="source-badge" @click.stop>
+      <FileText :size="11" />
+      <span>{{ docSource.doc_name }}</span>
+    </div>
+
+    <!-- Citations footer (from research grounding) -->
+    <div v-if="citations.length" class="citations-footer" @click.stop>
+      <button type="button" class="citations-toggle" @click="citationsOpen = !citationsOpen">
+        <Link :size="11" />
+        <span>{{ citations.length }} source{{ citations.length > 1 ? 's' : '' }}</span>
+        <ChevronUp v-if="citationsOpen" :size="11" />
+        <ChevronDown v-else :size="11" />
+      </button>
+      <div v-if="citationsOpen" class="citations-list">
+        <a
+          v-for="(cite, i) in citations"
+          :key="i"
+          :href="cite.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="citation-link"
+          @click.stop
+        >
+          {{ cite.title || cite.url }}
+        </a>
       </div>
     </div>
   </div>
@@ -243,12 +276,14 @@ textarea.node-text {
   color:var(--muted);
   background:var(--canvas-bg);
   border: 1px solid var(--border);
+  box-shadow: inset var(--shadow-sm);
 }
 
 .reaction-selector {
   display: flex;
   width:10rem;
   opacity: 0;
+  visibility: hidden;
   box-shadow: inset var(--shadow-sm);
   justify-content: space-evenly;
   margin-left: auto;
@@ -258,6 +293,7 @@ textarea.node-text {
   transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
+.reaction-selector.has-reactions,
 .sticky-note:hover .reaction-selector {
   opacity: 1;
   visibility: visible;
@@ -276,4 +312,70 @@ textarea.node-text {
   scale: 1.3;
 }
 
+/* ── Source / Citations ──────────────────────────────────────────────────── */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  width: fit-content;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.citations-footer {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.citations-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.citations-toggle:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.citations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 5px;
+  padding: 6px 8px;
+  background: var(--canvas-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.citation-link {
+  font-size: 11px;
+  color: var(--user-accent);
+  text-decoration: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.citation-link:hover {
+  text-decoration: underline;
+}
 </style>
