@@ -20,10 +20,10 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger("canvas.ai_gateway")
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
-MIN_SPACING_S = float(os.getenv("GEMINI_MIN_SPACING_S", "4"))
-REQUEST_TIMEOUT_S = float(os.getenv("GEMINI_REQUEST_TIMEOUT_S", "30"))
+MODEL = os.getenv("GEMINI_MODEL")
+EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL")
+MIN_SPACING_S = float(os.getenv("GEMINI_MIN_SPACING_S"))
+REQUEST_TIMEOUT_S = float(os.getenv("GEMINI_REQUEST_TIMEOUT_S"))
 MAX_RETRIES = 3
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 
@@ -216,7 +216,7 @@ async def embed_text(texts: list[str]) -> list[list[float]]:
 
 async def retrieve_rag_context(
     db: Session,
-    board_id: str,
+    board_id: int,
     query: str,
     doc_names: list[str] | None = None,
     top_k: int | None = None,
@@ -240,7 +240,7 @@ async def retrieve_rag_context(
 
 # ── Board summary (async, used by main.py after each turn) ───────────────────
 
-async def update_board_summary(db: Session, board_id: str, recent_messages: list[dict]) -> None:
+async def update_board_summary(db: Session, board_id: int, recent_messages: list[dict]) -> None:
     """Asynchronously regenerate and persist the board summary after a turn.
     Fires-and-forgets — caller should use asyncio.create_task()."""
     from . import crud as _crud

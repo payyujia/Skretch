@@ -6,10 +6,13 @@ import { useToolStore } from '../stores/tool'
 import { useAgentChat } from '../composables/useAgentChat'
 import { uploadDocument, deleteDocument } from '../api/client'
 
+const props = defineProps({
+  boardId: { type: [Number, String], required: true },
+})
+
 const board = useBoardStore()
 const tool = useToolStore()
-const { messages, connected, sending, send } = useAgentChat()
-
+const { messages, connected, sending, send } = useAgentChat(props.boardId)
 const draft = ref('')
 const inputRef = ref(null)
 const listRef = ref(null)

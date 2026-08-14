@@ -6,26 +6,27 @@ import { nodeTypeMeta } from '../utils/nodeTypes'
 let seq = 0
 const clientId = (prefix) => `${prefix}-${++seq}-${Math.random().toString(36).slice(2, 7)}`
 
-// Node types that toggle between an edit state and a rendered/preview state
-// (and so benefit from starting in edit mode right after creation). Image
-// and frame don't have that toggle — their inputs are always live, so each
-// of those focuses its own first input on mount instead; see their
-// onMounted hooks.
 const EDIT_ON_CREATE_TYPES = new Set(['document'])
 
 /**
- * Every node keeps a permanent client-side `id` (used as the vue-flow key)
- * plus a `serverId` that's null until the backend has confirmed it. This
- * means creating a node, editing it, and having it synced never causes a
- * re-key/remount — it just fills in `serverId` in place.
- *
- * Grouping is done via `parentId`: a node with `type: 'frame'` is a
- * container, and any node whose `parentId` equals a frame's client `id` is
- * a member of it. There's no separate edge/link concept anymore — frames
- * are the only relationship the board (or the agent) has.
- *
- * 1 creation path:createnodeoftype
+ * Single point of truth for turning a raw node — from the REST response
+ * (`fetchBoard`) or a WS event (`applyPlaced`/`applyUpdated`) — into the
+ * shape the store/components use. Backend fields may arrive snake_case or
+ * camelCase depending on the path; this is the only place that cares.
  */
+function normalizeNode(raw) {
+  return {
+    id: raw.id,
+    type: raw.type,
+    content: raw.content,
+    data: raw.data || {},
+    x: raw.x,
+    y: raw.y,
+    createdBy: raw.createdBy ?? raw.created_by,
+    parentServerId: raw.parentId ?? raw.parent_id ?? null,
+  }
+}
+
 export const useBoardStore = defineStore('board', {
   state: () => ({
     nodes: [],
@@ -33,6 +34,9 @@ export const useBoardStore = defineStore('board', {
     editingNodeId: null,
     past: [],
     future: [],
+    currentBoardId: null,
+    currentBoardName: '',
+    presence: {},
   }),
 
   getters: {
@@ -44,21 +48,30 @@ export const useBoardStore = defineStore('board', {
   },
 
   actions: {
-    async fetchBoard() {
-      const board = await api.getBoard()
+    async fetchBoard(boardId) {
+      const id = boardId ?? this.currentBoardId
+      if (!id) throw new Error('fetchBoard: no boardId provided')
+      if (boardId) this.currentBoardId = boardId
+      const board = await api.getBoard(id)
+      if (board.board_name) this.currentBoardName = board.board_name
+
       const byServerId = new Map()
-      const withoutParent = board.nodes.map((n) => {
-        const local = { ...n, serverId: n.id, parentId: null, thinking: false, justPlaced: false }
+      const localNodes = board.nodes.map((raw) => {
+        const n = normalizeNode(raw)
+        const local = {
+          id: n.id, serverId: n.id, type: n.type, content: n.content, data: n.data,
+          x: n.x, y: n.y, parentId: null, createdBy: n.createdBy,
+          thinking: false, justPlaced: false,
+          _parentServerId: n.parentServerId, // resolved below, then dropped
+        }
         byServerId.set(n.id, local)
         return local
       })
-      // parent_id from the server refers to another node's *server* id — resolve
-      // it to that node's local client id, same indirection serverId already
-      // handles for everything else.
-      for (const n of withoutParent) {
-        n.parentId = n.parent_id ? (byServerId.get(n.parent_id)?.id ?? null) : null
+      for (const local of localNodes) {
+        local.parentId = local._parentServerId ? (byServerId.get(local._parentServerId)?.id ?? null) : null
+        delete local._parentServerId
       }
-      this.nodes = withoutParent
+      this.nodes = localNodes
     },
 
     setContentLocal(id, content) {
@@ -66,8 +79,6 @@ export const useBoardStore = defineStore('board', {
       if (node) node.content = content
     },
 
-    /** Empty content discards the node (a blank note isn't worth keeping);
-     * otherwise creates it on first save or patches it after that. */
     async commitNode(id, content) {
       const node = this.nodes.find((n) => n.id === id)
       if (!node) return
@@ -83,14 +94,13 @@ export const useBoardStore = defineStore('board', {
           type: node.type, content: trimmed, data: node.data || {},
           x: node.x, y: node.y, created_by: node.createdBy,
           parent_id: parent?.serverId ?? null,
-        })
+        }, this.currentBoardId)
         node.serverId = saved.id
       } else {
         await api.updateNode(node.serverId, { content: trimmed })
       }
     },
 
-    // --- every other node type: create immediately with real data ---
     async createNodeOfType(type, x, y, createdBy = 'user', parentId = null) {
       this.checkpoint()
       const data = nodeTypeMeta(type).defaultData()
@@ -102,7 +112,7 @@ export const useBoardStore = defineStore('board', {
       const saved = await api.createNode({
         type, content: '', data, x, y, created_by: createdBy,
         parent_id: parent?.serverId ?? null,
-      })
+      }, this.currentBoardId)
       const id = clientId(type)
       this.nodes.push({ id, serverId: saved.id, type, content: saved.content, data: saved.data, x, y, parentId: parentId ?? null, createdBy, thinking: false, justPlaced: false })
       this.selectedNodeId = id
@@ -117,7 +127,6 @@ export const useBoardStore = defineStore('board', {
       if (node.serverId) await api.updateNode(node.serverId, { content })
     },
 
-    /** Shallow-merges `patch` into the node's data and persists the merged result. */
     async updateNodeData(id, patch) {
       const node = this.nodes.find((n) => n.id === id)
       if (!node) return
@@ -125,9 +134,6 @@ export const useBoardStore = defineStore('board', {
       if (node.serverId) await api.updateNode(node.serverId, { data: node.data })
     },
 
-    /** Move a node into a frame, or pass `null` to pop it out to the top
-     * level. `set_parent_id: true` is required by the backend to distinguish
-     * "change parent to null" from "don't touch parent" on a PATCH. */
     async reparentNode(id, frameId) {
       const node = this.nodes.find((n) => n.id === id)
       if (!node) return
@@ -163,8 +169,6 @@ export const useBoardStore = defineStore('board', {
 
     async deleteNode(id) {
       const node = this.nodes.find((n) => n.id === id)
-      // Deleting a frame shouldn't take its contents with it — orphan children
-      // back to the top level locally too, matching the backend's behavior.
       for (const child of this.nodes.filter((n) => n.parentId === id)) {
         child.parentId = null
       }
@@ -174,44 +178,48 @@ export const useBoardStore = defineStore('board', {
       if (node?.serverId) await api.deleteNode(node.serverId)
     },
 
-    // --- live events from the agent's websocket ---
+    // --- live events from the agent's / presence websocket ---
     applyThinking({ tempId, x, y, parentId = null, nodeType = 'sticky' }) {
       this.nodes.push({ id: tempId, serverId: null, type: nodeType, content: '', data: {}, x, y, parentId, createdBy: 'agent', thinking: true, justPlaced: false })
     },
 
     applyPlaced({ tempId, node }) {
-      let local = tempId ? this.nodes.find((n) => n.id === tempId) : null
+      const n = normalizeNode(node)
+
+      let local = tempId ? this.nodes.find((x) => x.id === tempId) : null
+      if (!local) local = this.byServerId(n.id) // dedupe self-originated broadcast echoes
       if (!local) {
         local = {
-          id: clientId(node.type), serverId: null, type: node.type, content: '',
-          data: {}, x: node.x, y: node.y, parentId: null,
-          createdBy: node.createdBy, thinking: false, justPlaced: false,
+          id: clientId(n.type), serverId: null, type: n.type, content: '',
+          data: {}, x: n.x, y: n.y, parentId: null,
+          createdBy: n.createdBy, thinking: false, justPlaced: false,
         }
         this.nodes.push(local)
       }
 
-      local.serverId = node.id
-      local.type = node.type
-      local.content = node.content
-      local.data = node.data
-      local.x = node.x
-      local.y = node.y
-      local.parentId = node.parentId ? (this.byServerId(node.parentId)?.id ?? null) : null
+      local.serverId = n.id
+      local.type = n.type
+      local.content = n.content
+      local.data = n.data
+      local.x = n.x
+      local.y = n.y
+      local.parentId = n.parentServerId ? (this.byServerId(n.parentServerId)?.id ?? null) : null
       local.thinking = false
       local.justPlaced = true
-      local.createdBy = node.createdBy ?? local.createdBy
+      local.createdBy = n.createdBy ?? local.createdBy
       setTimeout(() => { local.justPlaced = false }, 900)
     },
 
     applyUpdated({ node }) {
-      const local = this.byServerId(node.id)
+      const n = normalizeNode(node)
+      const local = this.byServerId(n.id)
       if (!local) return
-      local.content = node.content
-      local.data = node.data
-      local.x = node.x
-      local.y = node.y
-      local.parentId = node.parentId ? (this.byServerId(node.parentId)?.id ?? null) : null
-      local.createdBy = node.createdBy ?? local.createdBy
+      local.content = n.content
+      local.data = n.data
+      local.x = n.x
+      local.y = n.y
+      local.parentId = n.parentServerId ? (this.byServerId(n.parentServerId)?.id ?? null) : null
+      local.createdBy = n.createdBy ?? local.createdBy
     },
 
     applyDeleted({ id }) {
@@ -223,12 +231,23 @@ export const useBoardStore = defineStore('board', {
       this.nodes = this.nodes.filter((n) => n.id !== local.id)
     },
 
+    // --- presence ---
+    applyPresence(users) {
+      const map = {}
+      for (const u of users) map[u.connId] = u
+      this.presence = map
+    },
+
+    clearPresence() {
+      this.presence = {}
+    },
+
+    setBoardMeta(boardId, boardName) {
+      this.currentBoardId = boardId
+      if (boardName != null) this.currentBoardName = boardName
+    },
+
     // --- undo / redo ---
-    // Call checkpoint() right before a user-initiated mutation. Undo/redo then
-    // reconciles toward a saved snapshot by replaying the same create/update/
-    // delete actions used everywhere else, so the backend never drifts out of
-    // sync with what's on screen. Strokes need no special case here anymore —
-    // they're just nodes, so the same node-reconcile logic covers them.
     checkpoint() {
       this.past.push(this._snapshot())
       if (this.past.length > 40) this.past.shift()
@@ -264,15 +283,12 @@ export const useBoardStore = defineStore('board', {
       for (const n of [...this.nodes]) {
         if (!targetNodeIds.has(n.id)) await this.deleteNode(n.id)
       }
-      // Two passes: create/patch content+position first so every target node
-      // has a serverId, then reconcile parentId — a node can be reparented to
-      // a frame that was itself just (re)created in this same pass.
       for (const tn of target.nodes) {
         const existing = this.nodes.find((n) => n.id === tn.id)
         if (!existing) {
           const saved = await api.createNode({
             type: tn.type, content: tn.content, data: tn.data, x: tn.x, y: tn.y, created_by: tn.createdBy,
-          })
+          }, this.currentBoardId)
           this.nodes.push({
             id: tn.id, serverId: saved.id, type: tn.type, content: tn.content, data: tn.data,
             x: tn.x, y: tn.y, parentId: null, createdBy: tn.createdBy, thinking: false, justPlaced: false,

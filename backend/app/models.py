@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey, JSON, Text, Integer
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, JSON, Text, Integer, Table
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -15,6 +15,28 @@ def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# ── M2M: board ↔ collaborating users ─────────────────────────────────────────
+board_collaborators = Table(
+    "board_collaborators",
+    Base.metadata,
+    Column("board_id", Integer, ForeignKey("boards.board_id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id",  String, ForeignKey("users.id",  ondelete="CASCADE"), primary_key=True),
+)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id         = Column(String, primary_key=True, default=gen_id)
+    google_id  = Column(String, unique=True, index=True, nullable=False)
+    email      = Column(String, unique=True, nullable=False)
+    name       = Column(String, default="")
+    avatar_url = Column(String, nullable=True)
+    created_at = Column(DateTime, default=now)
+
+    owned_boards = relationship("Board", back_populates="owner", foreign_keys="Board.owner_id")
+
+
 # Node types and the shape of their `data` payload (all optional/sparse):
 #   sticky — data = {color, reactions, citations?: [{title, url}], source?: {doc_name, chunk_index}}
 #   image  — data = {url, width, height}
@@ -25,7 +47,7 @@ class Node(Base):
     __tablename__ = "nodes"
 
     id = Column(String, primary_key=True, default=gen_id)
-    board_id = Column(String, default="default", index=True)
+    board_id = Column(Integer, ForeignKey("boards.board_id", ondelete="CASCADE"), nullable=False, index=True)
     type = Column(String, default="sticky")
     content = Column(String, default="")
     data = Column(JSON, default=dict)
@@ -44,14 +66,19 @@ class Node(Base):
 
 
 class Board(Base):
-    """Per-board metadata — currently holds the rolling AI summary used as
-    persistent memory across chat sessions."""
+    """Per-board entity — holds identity, ownership, AI summary, and collaborators."""
     __tablename__ = "boards"
 
-    id = Column(String, primary_key=True, default=gen_id)
-    board_id = Column(String, unique=True, index=True, nullable=False)
-    summary = Column(Text, default="")
-    updated_at = Column(DateTime, default=now, onupdate=now)
+    board_id        = Column(Integer, primary_key=True)
+    name            = Column(String, default="Untitled Board")
+    owner_id        = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    last_visited_at = Column(DateTime, nullable=True)
+    summary         = Column(Text, default="")
+    updated_at      = Column(DateTime, default=now, onupdate=now)
+    created_at      = Column(DateTime, default=now)
+
+    owner         = relationship("User", back_populates="owned_boards", foreign_keys=[owner_id])
+    collaborators = relationship("User", secondary=board_collaborators)
 
 
 class DocumentChunk(Base):
@@ -61,7 +88,7 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
 
     id = Column(String, primary_key=True, default=gen_id)
-    board_id = Column(String, index=True, nullable=False)
+    board_id = Column(Integer, ForeignKey("boards.board_id", ondelete="CASCADE"), index=True, nullable=False)
     doc_name = Column(String, nullable=False)   # original filename
     chunk_index = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)

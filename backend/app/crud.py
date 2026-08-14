@@ -8,12 +8,9 @@ from . import models
 
 logger = logging.getLogger("canvas.crud")
 
-BOARD_ID = "default"  # single-board MVP; swap for a real id once multi-board lands
-
-
 # ── Node CRUD ─────────────────────────────────────────────────────────────────
 
-def get_board(db: Session, board_id: str = BOARD_ID):
+def get_board(db: Session, board_id: int):
     return db.query(models.Node).filter_by(board_id=board_id).all()
 
 
@@ -23,7 +20,7 @@ def get_node(db: Session, node_id: str):
 
 def create_node(db: Session, content: str = "", x: float = 0, y: float = 0,
                  created_by: str = "user", type: str = "sticky", data: dict | None = None,
-                 parent_id: str | None = None, board_id: str = BOARD_ID):
+                 parent_id: str | None = None, board_id: int = None):
     node = models.Node(
         content=content, x=x, y=y, created_by=created_by,
         type=type, data=data or {}, parent_id=parent_id, board_id=board_id,
@@ -70,12 +67,12 @@ def delete_node(db: Session, node_id: str) -> bool:
 
 # ── Board memory ──────────────────────────────────────────────────────────────
 
-def get_board_summary(db: Session, board_id: str) -> str | None:
+def get_board_summary(db: Session, board_id: int) -> str | None:
     row = db.query(models.Board).filter_by(board_id=board_id).first()
     return row.summary if row else None
 
 
-def upsert_board_summary(db: Session, board_id: str, summary: str) -> None:
+def upsert_board_summary(db: Session, board_id: int, summary: str) -> None:
     row = db.query(models.Board).filter_by(board_id=board_id).first()
     if row:
         row.summary = summary
@@ -85,7 +82,7 @@ def upsert_board_summary(db: Session, board_id: str, summary: str) -> None:
     db.commit()
 
 
-def get_board_snapshot_text(db: Session, board_id: str = BOARD_ID) -> str:
+def get_board_snapshot_text(db: Session, board_id: int) -> str:
     """Plain-text board snapshot used by the summary generator."""
     nodes = db.query(models.Node).filter_by(board_id=board_id).all()
     if not nodes:
@@ -109,7 +106,7 @@ def get_board_snapshot_text(db: Session, board_id: str = BOARD_ID) -> str:
 
 def store_chunks(
     db: Session,
-    board_id: str,
+    board_id: int,
     doc_name: str,
     chunks: list[str],
     embeddings: list[list[float]],
@@ -138,7 +135,7 @@ def store_chunks(
     return rows
 
 
-def list_documents(db: Session, board_id: str) -> list[str]:
+def list_documents(db: Session, board_id: int) -> list[str]:
     """Return a deduplicated list of doc_names uploaded to this board."""
     rows = (
         db.query(models.DocumentChunk.doc_name)
@@ -149,7 +146,7 @@ def list_documents(db: Session, board_id: str) -> list[str]:
     return [r.doc_name for r in rows]
 
 
-def delete_document(db: Session, board_id: str, doc_name: str) -> int:
+def delete_document(db: Session, board_id: int, doc_name: str) -> int:
     """Delete all chunks for a document. Returns number of rows deleted."""
     n = db.query(models.DocumentChunk).filter_by(
         board_id=board_id, doc_name=doc_name
@@ -160,7 +157,7 @@ def delete_document(db: Session, board_id: str, doc_name: str) -> int:
 
 def vector_search(
     db: Session,
-    board_id: str,
+    board_id: int,
     query_embedding: list[float],
     top_k: int = 5,
     doc_names: list[str] | None = None,
@@ -195,3 +192,104 @@ def vector_search(
 
     scored.sort(key=lambda x: x[0], reverse=True)
     return [c for _, c in scored[:top_k]]
+
+
+# ── User CRUD ─────────────────────────────────────────────────────────────────
+
+def get_user(db: Session, user_id: str) -> models.User | None:
+    return db.get(models.User, user_id)
+
+
+def get_user_by_google_id(db: Session, google_id: str) -> models.User | None:
+    return db.query(models.User).filter_by(google_id=google_id).first()
+
+
+def upsert_user(
+    db: Session,
+    google_id: str,
+    email: str,
+    name: str,
+    avatar_url: str | None = None,
+) -> models.User:
+    """Create or update a user record from Google OAuth info."""
+    user = get_user_by_google_id(db, google_id)
+    if user:
+        user.email = email
+        user.name = name
+        user.avatar_url = avatar_url
+    else:
+        user = models.User(
+            google_id=google_id, email=email, name=name, avatar_url=avatar_url
+        )
+        db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# ── Board entity CRUD ─────────────────────────────────────────────────────────
+
+def get_board_entity(db: Session, board_id: int) -> models.Board | None:
+    """Look up a Board by its board_id string key."""
+    return db.query(models.Board).filter_by(board_id=board_id).first()
+
+
+def ensure_board_entity(db: Session, board_id: int, name: str = "Untitled Board") -> models.Board:
+    """Get or create a Board entity for the given board_id."""
+    board = get_board_entity(db, board_id)
+    if not board:
+        board = models.Board(board_id=board_id, name=name)
+        db.add(board)
+        db.commit()
+        db.refresh(board)
+    return board
+
+
+def create_board(
+    db: Session,
+    name: str,
+    owner_id: str,
+) -> models.Board:
+    """Create a new board and return it."""
+    board = models.Board(name=name, owner_id=owner_id)
+    db.add(board)
+    db.commit()
+    db.refresh(board)
+    return board
+
+
+def get_user_boards(db: Session, user_id: str) -> list[models.Board]:
+    """Return all boards where the user is owner OR collaborator."""
+    owned = db.query(models.Board).filter_by(owner_id=user_id).all()
+    collab = (
+        db.query(models.Board)
+        .join(models.board_collaborators, models.Board.board_id == models.board_collaborators.c.board_id)
+        .filter(models.board_collaborators.c.user_id == user_id)
+        .all()
+    )
+    seen = {b.board_id for b in owned}
+    result = list(owned)
+    for b in collab:
+        if b.board_id not in seen:
+            result.append(b)
+    return result
+
+
+def add_collaborator(db: Session, board_id: int, user_id: str) -> None:
+    board = get_board_entity(db, board_id)
+    if not board:
+        return
+    user = get_user(db, user_id)
+    if not user or user in board.collaborators:
+        return
+    board.collaborators.append(user)
+    db.commit()
+
+
+def touch_board(db: Session, board_id: int) -> None:
+    """Update last_visited_at for a board."""
+    from datetime import datetime, timezone
+    board = get_board_entity(db, board_id)
+    if board:
+        board.last_visited_at = datetime.now(timezone.utc)
+        db.commit()

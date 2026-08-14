@@ -1,4 +1,5 @@
 from typing import Optional, Any
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
@@ -46,4 +47,33 @@ class ImageUploadOut(BaseModel):
 class DocumentUploadOut(BaseModel):
     doc_name: str
     chunk_count: int
-    board_id: str
+    board_id: int
+
+
+# ── User ──────────────────────────────────────────────────────────────────────
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    email: str
+    name: str
+    avatar_url: Optional[str] = None
+
+
+# ── Board ─────────────────────────────────────────────────────────────────────
+
+class BoardCreate(BaseModel):
+    name: str = "Untitled Board"
+
+
+class BoardDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    board_id: int
+    name: str
+    owner_id: Optional[str] = None
+    last_visited_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class BoardListOut(BaseModel):
+    boards: list[BoardDetail]

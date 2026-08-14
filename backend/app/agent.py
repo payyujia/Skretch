@@ -263,10 +263,10 @@ def _frame_size(child_count: int) -> tuple[float, float]:
     return w, h
 
 
-def _next_top_level_frame_pos(db: Session) -> tuple[float, float]:
+def _next_top_level_frame_pos(db: Session, board_id: int) -> tuple[float, float]:
     """Return (x, y) for a new top-level frame, placed to the right of all
     existing frames (or at origin if none)."""
-    nodes = crud.get_board(db)
+    nodes = crud.get_board(db, board_id)
     frames = [n for n in nodes if n.type == "frame"]
     if not frames:
         return 80.0, 80.0
@@ -278,12 +278,12 @@ def _next_top_level_frame_pos(db: Session) -> tuple[float, float]:
     return rightmost_x + FRAME_H_GAP, 80.0
 
 
-def _next_child_pos(db: Session, parent_id: str) -> tuple[float, float]:
+def _next_child_pos(db: Session, parent_id: str, board_id: int) -> tuple[float, float]:
     """Return (x, y) for a new child node inside `parent_id`, using a 2-col grid."""
     frame = crud.get_node(db, parent_id)
     if not frame:
         return 0.0, 0.0
-    siblings = [n for n in crud.get_board(db) if n.parent_id == parent_id]
+    siblings = [n for n in crud.get_board(db, board_id) if n.parent_id == parent_id]
     idx = len(siblings)
     col = idx % FRAME_COLS
     row = idx // FRAME_COLS
@@ -292,12 +292,12 @@ def _next_child_pos(db: Session, parent_id: str) -> tuple[float, float]:
     return x, y
 
 
-def _next_position(db: Session, parent_id: str | None, near_node_id: str | None) -> dict:
+def _next_position(db: Session, parent_id: str | None, near_node_id: str | None, board_id: int) -> dict:
     if parent_id:
-        x, y = _next_child_pos(db, parent_id)
+        x, y = _next_child_pos(db, parent_id, board_id)
         return {"x": x, "y": y}
 
-    nodes = [n for n in crud.get_board(db) if n.type != "stroke"]
+    nodes = [n for n in crud.get_board(db, board_id) if n.type != "stroke"]
     by_id = {n.id: n for n in nodes}
 
     if near_node_id and near_node_id in by_id:
@@ -330,9 +330,9 @@ def _node_line(n) -> str:
     return f'  - {n.id} ({n.type}, {n.created_by}) at ({n.x:.0f},{n.y:.0f}): "{n.content}"{cite_tag}{src_tag}{reaction_tag}'
 
 
-def _board_snapshot(db: Session) -> str:
+def _board_snapshot(db: Session, board_id: int) -> str:
     """Textual snapshot of the board for injection into the system prompt."""
-    nodes = crud.get_board(db)
+    nodes = crud.get_board(db, board_id)
     nodes = [n for n in nodes if n.type != "stroke"]
     if not nodes:
         return "The board is currently empty."
@@ -366,7 +366,7 @@ async def _execute_tool(
     name: str,
     args: dict,
     send: Send,
-    board_id: str = "default",
+    board_id: int,
     attached_doc_names: list[str] | None = None,
 ) -> dict:
 
@@ -375,7 +375,7 @@ async def _execute_tool(
         if parent_id and not crud.get_node(db, parent_id):
             parent_id = None
         temp_id = f"tmp-{uuid.uuid4().hex[:8]}"
-        pos = _next_position(db, parent_id, args.get("near_node_id"))
+        pos = _next_position(db, parent_id, args.get("near_node_id"), board_id)
         node_type = args.get("node_type", "sticky")
         # Build data payload — carry citations and source if provided
         data: dict = {}
@@ -418,7 +418,7 @@ async def _execute_tool(
             fx = min(m.x for m in members) - FRAME_PAD
             fy = min(m.y for m in members) - FRAME_LABEL_H - FRAME_PAD
         else:
-            fx, fy = _next_top_level_frame_pos(db)
+            fx, fy = _next_top_level_frame_pos(db, board_id)
 
         # Compute frame dimensions based on how many children will be inside
         fw, fh = _frame_size(max(len(members), 1))
@@ -523,7 +523,7 @@ async def run_agent_turn(
     user_message: str,
     history: list,
     send: Send,
-    board_id: str = "default",
+    board_id: int,
     attached_doc_names: list[str] | None = None,
     board_summary: str | None = None,
 ) -> str | None:
@@ -531,7 +531,7 @@ async def run_agent_turn(
     executed and broadcast immediately) before giving a final text reply."""
 
     # Build system prompt with board snapshot + board memory
-    board_state = _board_snapshot(db)
+    board_state = _board_snapshot(db, board_id)
     sys_content = SYSTEM_PROMPT + "\n\n" + board_state
     if board_summary:
         sys_content += f"\n\n## Project memory\n{board_summary}"

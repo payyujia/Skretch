@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
@@ -10,11 +10,14 @@ import FrameNode from './Frame.vue'
 import { useBoardStore } from '../stores/board'
 import { useToolStore } from '../stores/tool'
 import { defaultSpawnPosition } from '../utils/layout'
-// import { uploadImage } from '../api/client'
-// import { validateImageFile } from '../utils/image'
+import { useBoardPresence } from '../composables/useBoardPresence'
 
+const props = defineProps({
+  boardId: { type: [Number, String], required: true },
+})
 const board = useBoardStore()
 const tool = useToolStore()
+const presence = useBoardPresence()
 const { screenToFlowCoordinate, findNode } = useVueFlow()
 const hoveredNodeId = ref(null)
 const chatRef = ref(null)
@@ -190,6 +193,16 @@ function handleKeydown(event) {
     else if (board.selectedNodeId) board.deselect()
   }
 }
+watch(
+  () => props.boardId,
+  (id) => {
+    if (!id) return
+    board.setBoardMeta(id)
+    board.fetchBoard(id)
+    presence.connect(id)
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
@@ -237,7 +250,7 @@ onUnmounted(() => {
     </transition>
 
     <Toolbar />
-    <ChatPopover ref="chatRef" />
+    <ChatPopover ref="chatRef" :board-id="props.boardId"/>
   </div>
 </template>
 
