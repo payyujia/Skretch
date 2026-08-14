@@ -59,12 +59,12 @@ function openFilePicker() {
 
 async function onFileSelected(event) {
   const files = Array.from(event.target.files || [])
-  event.target.value = '' // reset so same file can be re-uploaded
+  event.target.value = ''
   for (const file of files) {
     const entry = { name: file.name, uploading: true, error: null }
     attachedDocs.value.push(entry)
     try {
-      await uploadDocument(file, 'default')
+      await uploadDocument(file, props.boardId)
       entry.uploading = false
     } catch (err) {
       entry.uploading = false
@@ -75,9 +75,8 @@ async function onFileSelected(event) {
 
 function removeDoc(name) {
   attachedDocs.value = attachedDocs.value.filter(d => d.name !== name)
-  deleteDocument(name, 'default').catch(() => {/* best-effort */})
+  deleteDocument(name, props.boardId).catch(() => {/* best-effort */})
 }
-
 defineExpose({ focusWithContext })
 </script>
 

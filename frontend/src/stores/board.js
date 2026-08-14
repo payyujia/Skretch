@@ -113,6 +113,13 @@ export const useBoardStore = defineStore('board', {
         type, content: '', data, x, y, created_by: createdBy,
         parent_id: parent?.serverId ?? null,
       }, this.currentBoardId)
+      // WS broadcast may have inserted this node before the HTTP response arrived
+      const existing = this.byServerId(saved.id)
+      if (existing) {
+        this.selectedNodeId = existing.id
+        if (EDIT_ON_CREATE_TYPES.has(type)) this.editingNodeId = existing.id
+        return existing.id
+      }
       const id = clientId(type)
       this.nodes.push({ id, serverId: saved.id, type, content: saved.content, data: saved.data, x, y, parentId: parentId ?? null, createdBy, thinking: false, justPlaced: false })
       this.selectedNodeId = id

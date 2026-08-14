@@ -40,7 +40,7 @@ export function useBoardPresence() {
         board.applyUpdated({ node: msg.node })
         break
       case 'node_deleted':
-        board.applyDeleted({ id: msg.node_id })
+        board.applyDeleted({ id: msg.id })
         break
       case 'presence':
         board.applyPresence(msg.users ?? [])

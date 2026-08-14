@@ -390,7 +390,7 @@ const presenceUsers = computed(() => Object.values(board.presence))
 .panel-close {
   background: transparent;
   border: none;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 16px;
   cursor: pointer;
   padding: 4px;
@@ -402,7 +402,7 @@ const presenceUsers = computed(() => Object.values(board.presence))
 .panel-description {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: #6b7280;
+  color: var(--muted);
   margin: 0;
   line-height: 1.5;
 }
@@ -456,7 +456,7 @@ const presenceUsers = computed(() => Object.values(board.presence))
   height: 38px;
   background: transparent;
   border: 1.5px solid #2a2a2a;
-  color: #6b7280;
+  color: var(--muted);
   border-radius: 4px;
   font-family: var(--font-mono);
   font-size: 12px;

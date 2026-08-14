@@ -174,7 +174,7 @@ const auth = useAuthStore()
   font-size: 18px;
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: #d4c9a8;
+  color: var(--border-strong);
   margin-bottom: 36px;
 }
 
@@ -260,7 +260,7 @@ const auth = useAuthStore()
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.15em;
-  color: #6b7280;
+  color: var(--muted);
   background: #e8e2d8;
   border: 1px solid #c5bfb3;
   display: inline-block;
@@ -279,7 +279,7 @@ const auth = useAuthStore()
 
 .card-subtitle {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--muted);
   margin: 0 0 24px 0;
   line-height: 1.5;
 }
@@ -308,16 +308,16 @@ const auth = useAuthStore()
   letter-spacing: 0.03em;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
-  box-shadow: 3px 3px 0 #6b7280;
+  box-shadow: 3px 3px 0 var(--muted);
 }
 .btn-google:hover {
   background: #1a1a1a;
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 #6b7280;
+  box-shadow: 4px 4px 0 var(--muted);
 }
 .btn-google:active {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 #6b7280;
+  box-shadow: 1px 1px 0 var(--muted);
 }
 .google-icon {
   width: 20px;
@@ -367,7 +367,7 @@ const auth = useAuthStore()
   background: #e8e2d8;
   border: 1px solid #c5bfb3;
   padding: 2px 6px;
-  color: #6b7280;
+  color: var(--muted);
 }
 
 /* Legal note */

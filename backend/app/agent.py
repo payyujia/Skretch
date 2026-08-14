@@ -90,7 +90,7 @@ TOOLS = [
                 "properties": {
                     "content": {
                         "type": "string",
-                        "description": "1–2 complete sentences articulating the insight, action item, question, or data point.",
+                        "description": "1–2 complete sentences articulating the insight, action item, question, or data point. Use bullet points instead if that is sufficient to get the idea across",
                     },
                     "parent_id": {
                         "type": "string",

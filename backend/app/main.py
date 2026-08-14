@@ -121,31 +121,49 @@ def read_board(board_id: int = Query(...), db: Session = Depends(get_db)):
     return {"nodes": nodes}
 
 
+def _node_broadcast_payload(event_type: str, node) -> dict:
+    return {
+        "type": event_type,
+        "node": {
+            "id": node.id, "type": node.type, "content": node.content,
+            "data": node.data, "x": node.x, "y": node.y,
+            "createdBy": node.created_by, "parentId": node.parent_id,
+        },
+    }
+
+
 @app.post("/api/nodes", response_model=schemas.NodeOut)
-def create_node(
+async def create_node(
     payload: schemas.NodeCreate,
     board_id: int = Query(...),
     db: Session = Depends(get_db),
 ):
-    return crud.create_node(
+    node = crud.create_node(
         db, content=payload.content, x=payload.x, y=payload.y,
         created_by=payload.created_by, type=payload.type, data=payload.data,
         parent_id=payload.parent_id, board_id=board_id,
     )
+    await _broadcast_to_board(board_id, _node_broadcast_payload("node_created", node))
+    return node
 
 
 @app.patch("/api/nodes/{node_id}", response_model=schemas.NodeOut)
-def update_node(node_id: str, payload: schemas.NodeUpdate, db: Session = Depends(get_db)):
+async def update_node(node_id: str, payload: schemas.NodeUpdate, db: Session = Depends(get_db)):
     fields = payload.model_dump(exclude_none=True, exclude={"set_parent_id"})
     node = crud.update_node(db, node_id, set_parent_id=payload.set_parent_id, **fields)
     if not node:
         raise HTTPException(status_code=404, detail="node not found")
+    await _broadcast_to_board(node.board_id, _node_broadcast_payload("node_updated", node))
     return node
 
 
 @app.delete("/api/nodes/{node_id}")
-def delete_node(node_id: str, db: Session = Depends(get_db)):
+async def delete_node(node_id: str, db: Session = Depends(get_db)):
+    node = crud.get_node(db, node_id)
+    board_id = node.board_id if node else None
     crud.delete_node(db, node_id)
+    if board_id is not None:
+        await _broadcast_to_board(board_id, {"type": "node_deleted", "id": node_id})
     return {"status": "ok"}
 
 

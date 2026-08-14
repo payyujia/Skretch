@@ -229,7 +229,7 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   min-height: 100vh;
   background: #faf7f2;
   font-family: 'IBM Plex Mono', monospace;
-  color: #0d0d0d;
+  color: var(--ink);
   display: flex;
   flex-direction: column;
 }
@@ -240,8 +240,8 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   top: 0;
   z-index: 100;
   height: 56px;
-  background: #f5f0e8;
-  border-bottom: 2px solid #1a1a1a;
+  background: var(--canvas-bg);
+  border-bottom: 2px solid var(--muted);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -257,8 +257,8 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   letter-spacing: -0.02em;
   user-select: none;
 }
-.logo-sk    { color: #2f5fe0; }
-.logo-retch { color: #0d0d0d; }
+.logo-sk    { color: var(--user-accent); }
+.logo-retch { color: var(--ink); }
 
 /* Cosmetic nav pills */
 .nav-pills { display: flex; gap: 4px; }
@@ -270,14 +270,14 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   background: transparent;
   border: 1px solid transparent;
   border-radius: 2px;
-  color: #6b7280;
+  color: var(--muted);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 .nav-pill:hover, .nav-pill.active {
-  background: #1a1a1a;
-  color: #f5f0e8;
-  border-color: #1a1a1a;
+  background: var(--muted);
+  color: var(--canvas-bg);
+  border-color: var(--muted);
 }
 
 .btn-outline-sm {
@@ -286,25 +286,25 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   font-size: 11px;
   letter-spacing: 0.05em;
   background: transparent;
-  border: 1px solid #c5bfb3;
+  border: 1px solid var(--border);
   border-radius: 2px;
-  color: #6b7280;
+  color: var(--muted);
   cursor: pointer;
 }
-.btn-outline-sm:hover { border-color: #1a1a1a; color: #0d0d0d; }
+.btn-outline-sm:hover { border-color: var(--muted); color: var(--ink); }
 
 .user-chip {
   display: flex;
   align-items: center;
   gap: 8px;
   padding-left: 12px;
-  border-left: 1px solid #c5bfb3;
+  border-left: 1px solid var(--border);
 }
 .avatar {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 2px solid #1a1a1a;
+  border: 2px solid var(--muted);
   object-fit: cover;
 }
 .avatar-fallback {
@@ -314,15 +314,15 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #0d0d0d;
-  color: #f5f0e8;
+  background: var(--ink);
+  color: var(--canvas-bg);
   font-size: 13px;
   font-weight: 700;
 }
 .user-name {
   font-size: 12px;
   font-weight: 600;
-  color: #0d0d0d;
+  color: var(--ink);
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -331,19 +331,19 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
 .logout-btn {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  color: #6b7280;
+  color: var(--muted);
   background: transparent;
   border: none;
   cursor: pointer;
   text-decoration: underline;
   padding: 0;
 }
-.logout-btn:hover { color: #f43f5e; }
+.logout-btn:hover { color:var(--danger) }
 
 /* ── Hero ──────────────────────────────────────────────────────────────── */
 .page-hero {
-  border-bottom: 1px solid #d4c9a8;
-  background: #f5f0e8;
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--canvas-bg);
   padding: 40px 0 32px;
 }
 .hero-inner {
@@ -364,10 +364,10 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   margin: 0 0 8px;
   line-height: 1.05;
 }
-.hero-dot { color: #2f5fe0; }
+.hero-dot { color: rgb(216 180 254); }
 .hero-sub {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--muted);
   margin: 0;
 }
 
@@ -386,17 +386,17 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   align-items: center;
   justify-content: space-between;
   background: #fff1f2;
-  border: 1px solid #f43f5e;
+  border: 1px solid var(--danger);
   border-radius: 2px;
   padding: 10px 14px;
   font-size: 13px;
-  color: #f43f5e;
+  color: var(--danger);
   margin-bottom: 24px;
 }
 .error-dismiss {
   background: transparent;
   border: none;
-  color: #f43f5e;
+  color: var(--danger);
   font-size: 14px;
   cursor: pointer;
 }
@@ -428,32 +428,32 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   font-size: 11px;
   letter-spacing: 0.04em;
   background: transparent;
-  border: 1px solid #c5bfb3;
+  border: 1px solid var(--border);
   border-radius: 2px;
-  color: #6b7280;
+  color: var(--muted);
   cursor: pointer;
 }
-.filter-btn:hover { background: #e8e2d8; color: #0d0d0d; }
+.filter-btn:hover { background: rgb(125 211 252); color: var(--ink); }
 
 .btn-new {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 7px 16px;
-  background: #0d0d0d;
-  color: #f5f0e8;
-  border: 2px solid #0d0d0d;
+  background: var(--ink);
+  color: var(--canvas-bg);
+  border: 2px solid var(--ink);
   border-radius: 2px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
-  box-shadow: 2px 2px 0 #6b7280;
+  box-shadow: 2px 2px 0 var(--muted);
   transition: transform 0.1s, box-shadow 0.1s;
 }
-.btn-new:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 #6b7280; }
-.btn-new:active { transform: translate(1px,1px); box-shadow: 0 0 0 #6b7280; }
+.btn-new:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--muted); }
+.btn-new:active { transform: translate(1px,1px); box-shadow: 0 0 0 var(--muted); }
 .plus-icon { font-size: 16px; line-height: 1; }
 
 /* ── Board card grid ───────────────────────────────────────────────────── */
@@ -467,21 +467,21 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   all: unset;
   display: flex;
   flex-direction: column;
-  border: 2px solid #1a1a1a;
+  border: 2px solid var(--border-strong);
   border-radius: 2px;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 3px 3px 0 #1a1a1a;
+  box-shadow: 3px 3px 0 var(--muted);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
-  background: #f5f0e8;
+  background: var(--canvas-bg);
 }
 .board-card:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 5px 5px 0 #1a1a1a;
+  box-shadow: 5px 5px 0 var(--shadow-sm);
 }
-.board-card:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 #1a1a1a; }
+.board-card:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--muted); }
 .board-card:focus-visible {
-  outline: 2px solid #2f5fe0;
+  outline: 2px solid var(--user-accent);
   outline-offset: 2px;
 }
 
@@ -490,12 +490,12 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   position: relative;
   height: 140px;
   overflow: hidden;
-  border-bottom: 2px solid #1a1a1a;
+  border-bottom: 2px solid var(--muted);
 }
 .card-grid-dots {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, #d4c9a8 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--muted) 1px, transparent 1px);
   background-size: 18px 18px;
 }
 /* Decorative sticky notes */
@@ -506,10 +506,11 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   border: 1.5px solid rgba(26,26,26,0.3);
   border-radius: 2px;
   box-shadow: 2px 2px 4px rgba(0,0,0,0.08);
+  filter:brightness(1.2);
 }
-.s1 { background: #fef9c3; top: 20px; left: 24px; transform: rotate(-4deg); }
-.s2 { background: #dbeafe; top: 30px; left: 80px; transform: rotate(2deg); }
-.s3 { background: #fce7f3; top: 18px; left: 140px; transform: rotate(-1deg); }
+.s1 { background: rgb(110 231 183); top: 20px; left: 24px; transform: rotate(-4deg); }
+.s2 { background: rgb(252 211 77); top: 30px; left: 80px; transform: rotate(2deg); }
+.s3 { background: rgb(253 164 175); top: 18px; left: 140px; transform: rotate(-1deg); }
 
 /* Marker tray (card footer) */
 .card-tray {
@@ -524,13 +525,13 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   font-family: 'Space Grotesk', sans-serif;
   font-size: 14px;
   font-weight: 700;
-  color: #0d0d0d;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 180px;
 }
-.card-date { font-size: 11px; color: #9ca3af; letter-spacing: 0.04em; }
+.card-date { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
 
 .tray-markers { display: flex; gap: 4px; align-items: center; }
 .marker {
@@ -540,15 +541,15 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   border-radius: 3px;
   border: 1px solid rgba(0,0,0,0.15);
 }
-.m-blue  { background: #2f5fe0; }
-.m-red   { background: #f43f5e; }
-.m-green { background: #4caf50; }
+.m-blue  { background: rgb(125 211 252); }
+.m-red   { background: rgb(253 164 175); }
+.m-green { background: rgb(110 231 183); }
 
 /* Loading skeletons */
 .card-skeleton {
   height: 190px;
-  background: #e8e2d8;
-  border: 2px solid #c5bfb3;
+  background: var(--shadow-md);
+  border: 2px solid var(--border);
   border-radius: 2px;
   animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
@@ -563,25 +564,25 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   font-size: 11px;
   letter-spacing: 0.2em;
   color: #9ca3af;
-  border: 1px dashed #c5bfb3;
+  border: 1px dashed var(--border);
   display: inline-block;
   padding: 6px 16px;
   margin-bottom: 16px;
 }
-.empty-hint { font-size: 14px; color: #6b7280; margin-bottom: 24px; }
+.empty-hint { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
 .btn-new-lg {
   padding: 12px 28px;
-  background: #0d0d0d;
-  color: #f5f0e8;
-  border: 2px solid #0d0d0d;
+  background: var(--ink);
+  color: var(--canvas-bg);
+  border: 2px solid var(--ink);
   border-radius: 2px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 3px 3px 0 #6b7280;
+  box-shadow: 3px 3px 0 var(--muted);
 }
-.btn-new-lg:hover { box-shadow: 5px 5px 0 #6b7280; }
+.btn-new-lg:hover { box-shadow: 5px 5px 0 var(--muted); }
 
 /* ── Create modal ──────────────────────────────────────────────────────── */
 .modal-backdrop {
@@ -595,20 +596,20 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   z-index: 1000;
 }
 .modal-box {
-  background: #f5f0e8;
-  border: 2px solid #1a1a1a;
+  background: var(--canvas-bg);
+  border: 2px solid var(--muted);
   border-radius: 2px;
   padding: 36px 32px;
   width: 400px;
   max-width: 90vw;
-  box-shadow: 6px 6px 0 #1a1a1a;
+  box-shadow: 6px 6px 0 var(--muted);
 }
 .modal-stamp {
   font-size: 9px;
   letter-spacing: 0.15em;
-  color: #6b7280;
+  color: var(--muted);
   background: #e8e2d8;
-  border: 1px solid #c5bfb3;
+  border: 1px solid var(--border);
   display: inline-block;
   padding: 3px 8px;
   margin-bottom: 16px;
@@ -622,17 +623,17 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
 .modal-input {
   width: 100%;
   padding: 10px 12px;
-  border: 2px solid #1a1a1a;
+  border: 2px solid var(--muted);
   border-radius: 2px;
   background: #faf7f2;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 14px;
-  color: #0d0d0d;
+  color: var(--ink);
   outline: none;
   box-sizing: border-box;
   transition: box-shadow 0.15s;
 }
-.modal-input:focus { box-shadow: 3px 3px 0 #2f5fe0; border-color: #2f5fe0; }
+.modal-input:focus { box-shadow: 3px 3px 0 var(--user-accent); border-color: var(--border-strong); }
 .modal-actions {
   display: flex;
   gap: 10px;
@@ -642,29 +643,29 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
 .btn-cancel {
   padding: 9px 18px;
   background: transparent;
-  border: 2px solid #c5bfb3;
+  border: 2px solid var(--border);
   border-radius: 2px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--muted);
   cursor: pointer;
 }
-.btn-cancel:hover { border-color: #1a1a1a; color: #0d0d0d; }
+.btn-cancel:hover { border-color: var(--muted); color: var(--ink); }
 .btn-create {
   padding: 9px 20px;
-  background: #0d0d0d;
-  color: #f5f0e8;
-  border: 2px solid #0d0d0d;
+  background: var(--ink);
+  color: var(--canvas-bg);
+  border: 2px solid var(--ink);
   border-radius: 2px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 2px 2px 0 #6b7280;
+  box-shadow: 2px 2px 0 var(--muted);
   transition: opacity 0.15s;
 }
 .btn-create:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-create:not(:disabled):hover { box-shadow: 3px 3px 0 #6b7280; }
+.btn-create:not(:disabled):hover { box-shadow: 3px 3px 0 var(--muted); }
 
 /* ── FAB ──────────────────────────────────────────────────────────────── */
 .fab {
@@ -674,20 +675,20 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: #0d0d0d;
-  color: #f5f0e8;
-  border: 2px solid #0d0d0d;
+  background: var(--ink);
+  color: var(--canvas-bg);
+  border: 2px solid var(--ink);
   font-size: 28px;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 3px 3px 0 #6b7280;
+  box-shadow: 3px 3px 0 var(--muted);
   transition: transform 0.15s, box-shadow 0.15s;
   z-index: 50;
 }
-.fab:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 #6b7280; }
+.fab:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--muted); }
 
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 900px) {

@@ -9,6 +9,7 @@ import ChatPopover from './ChatPopover.vue'
 import FrameNode from './Frame.vue'
 import { useBoardStore } from '../stores/board'
 import { useToolStore } from '../stores/tool'
+import { useAuthStore } from '../stores/auth'
 import { defaultSpawnPosition } from '../utils/layout'
 import { useBoardPresence } from '../composables/useBoardPresence'
 
@@ -17,6 +18,7 @@ const props = defineProps({
 })
 const board = useBoardStore()
 const tool = useToolStore()
+const auth = useAuthStore()
 const presence = useBoardPresence()
 const { screenToFlowCoordinate, findNode } = useVueFlow()
 const hoveredNodeId = ref(null)
@@ -120,7 +122,7 @@ function onNodeClick({ node, event }) {
   // swallows clicks and the "nodes" tool becomes unusable anywhere inside one.
   if (tool.active === 'nodes' && tool.pendingNodeType && node.type === 'frame') {
     const pos = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
-    board.createNodeOfType(tool.pendingNodeType, pos.x, pos.y, 'user', node.id)
+    board.createNodeOfType(tool.pendingNodeType, pos.x, pos.y, auth.user?.name ?? 'user', node.id)
     return
   }
   if (tool.active === 'select') board.select(node.id)
@@ -145,7 +147,7 @@ function onNodeMouseLeave() {
 function onPaneClick(event) {
   if (tool.active === 'nodes' && tool.pendingNodeType) {
     const pos = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
-    board.createNodeOfType(tool.pendingNodeType, pos.x, pos.y)
+    board.createNodeOfType(tool.pendingNodeType, pos.x, pos.y, auth.user?.name ?? 'user')
     return
   }
   if (tool.active === 'select') board.deselect()
@@ -158,7 +160,7 @@ async function onPaste(event) {
   if (!file || validateImageFile(file)) return // silently ignore; explicit upload UI shows errors
 
   const pos = defaultSpawnPosition()
-  const id = await board.createNodeOfType('image', pos.x, pos.y)
+  const id = await board.createNodeOfType('image', pos.x, pos.y, auth.user?.id ?? 'user')
   try {
     const { url } = await uploadImage(file)
     board.checkpoint()
@@ -207,7 +209,6 @@ watch(
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('paste', onPaste)
-  board.fetchBoard()
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
