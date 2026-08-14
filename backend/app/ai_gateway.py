@@ -146,7 +146,7 @@ async def generate_with_search(query: str, context: str = "") -> tuple[str, list
             client = _get_genai_client()
             from google.genai import types  # type: ignore
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model=MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     tools=[types.Tool(google_search=types.GoogleSearch())],

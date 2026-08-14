@@ -10,6 +10,7 @@ const showPanel = ref(false)
 const isExporting = ref(false)
 const exportSuccess = ref(false)
 const exportError = ref(null)
+const exportFormat = ref('auto')  // 'auto' | 'essay' | 'prd'
 
 // ── Build a structured JSON preview from current board nodes ─────────────────
 const boardJson = computed(() => {
@@ -66,6 +67,7 @@ async function exportToDocs() {
       body: JSON.stringify({
         board_id: board.currentBoardId,
         payload: boardJson.value,
+        format: exportFormat.value,
       }),
     })
     if (!res.ok) {
@@ -156,8 +158,32 @@ const presenceUsers = computed(() => Object.values(board.presence))
         </div>
 
         <p class="panel-description">
-          Board content synthesized as structured JSON. Review before exporting to Google Docs.
+          The AI reads your board — frames, stickies, reactions, and citations —
+          and writes a structured document with proper headings, analysis, and footnotes.
         </p>
+
+        <!-- Format selector -->
+        <div class="format-selector">
+          <span class="format-label">Output format</span>
+          <div class="format-options">
+            <label
+              v-for="opt in [
+                { value: 'auto',  label: 'Auto',  desc: 'AI decides' },
+                { value: 'essay', label: 'Essay', desc: 'Analysis / research' },
+                { value: 'prd',   label: 'PRD',   desc: 'Product requirements' },
+              ]"
+              :key="opt.value"
+              class="format-option"
+              :class="{ active: exportFormat === opt.value }"
+            >
+              <input type="radio" v-model="exportFormat" :value="opt.value" />
+              <span class="format-option-text">
+                <strong>{{ opt.label }}</strong>
+                <small>{{ opt.desc }}</small>
+              </span>
+            </label>
+          </div>
+        </div>
 
         <!-- JSON tree preview -->
         <div class="json-preview">
@@ -426,7 +452,71 @@ const presenceUsers = computed(() => Object.values(board.presence))
   word-break: break-all;
 }
 
-.status-success {
+/* ── Format selector ── */
+.format-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.format-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.format-options {
+  display: flex;
+  gap: 6px;
+}
+
+.format-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1.5px solid #2a2a2a;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.format-option input[type="radio"] {
+  display: none;
+}
+
+.format-option.active {
+  border-color: #2f5fe0;
+  background: rgba(47, 95, 224, 0.1);
+}
+
+.format-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.format-option-text strong {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #f5f0e8;
+  line-height: 1;
+}
+
+.format-option-text small {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* ── Status messages ── */
+.status-success{
   font-family: var(--font-mono);
   font-size: 12px;
   color: #4caf50;

@@ -53,6 +53,16 @@ take shape in real-time.
   requirements, or any detail that might be in uploaded documents, call \
   `retrieve_context` first.
 
+## Citation discipline — mandatory
+- After every `research_topic` call you MUST attach citations to every node \
+  you create from that research. No citation-less research notes are allowed.
+- Use the `citations` field in `add_node` to attach the relevant web sources \
+  from the research result. Each sticky that contains a research finding must \
+  carry at least one citation.
+- Never create a node with research-derived content without populating `citations`.
+- If a sticky covers multiple findings from different sources, include all \
+  relevant citation objects in the array.
+
 ## Tool discipline
 - Use `create_frame` to make a new labeled container, then `add_node` with \
   `parent_id` to fill it.
@@ -63,7 +73,7 @@ take shape in real-time.
   `create_frame` when the topic is genuinely new and has no existing frame.
 - For research: `research_topic` → returns summary + citations → you then create \
   a frame (or reuse an existing one on the same topic) with stickies for each key \
-  finding, each carrying `citations` in data.
+  finding, **each sticky MUST carry the relevant `citations` in its data**.
 - For document context: `retrieve_context` → returns relevant passages → you \
   distil them into stickies with `data.source` attribution.
 
@@ -114,7 +124,12 @@ TOOLS = [
                                 "url": {"type": "string"},
                             },
                         },
-                        "description": "Optional: web citations from research. Each item has {title, url}.",
+                        "description": (
+                            "REQUIRED when content comes from research_topic. "
+                            "Attach every web source that supports this sticky's claim. "
+                            "Each item: {title, url}. Omitting citations on research-derived "
+                            "nodes is a policy violation."
+                        ),
                     },
                     "source": {
                         "type": "object",
@@ -466,8 +481,12 @@ async def _execute_tool(
             "summary": summary,
             "citations": citations,
             "instruction": (
-                "Use the summary above to create a frame with 3-5 stickies, each capturing a key "
-                "finding. Attach relevant citations to each sticky via the 'citations' field in add_node."
+                "MANDATORY: Create a frame with 3-6 stickies, one per key finding. "
+                "Every sticky MUST include the relevant citation(s) from the citations "
+                "list above in its `citations` field. A sticky without citations when "
+                "its content comes from this research is a policy violation. "
+                "Distribute citations across stickies — each sticky should cite the "
+                "specific source(s) that support its particular claim."
             ),
         }
 

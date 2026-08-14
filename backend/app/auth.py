@@ -42,7 +42,8 @@ GOOGLE_SCOPES = " ".join([
     "openid",
     "email",
     "profile",
-    "https://www.googleapis.com/auth/drive.file",   # needed for later export stage
+    "https://www.googleapis.com/auth/documents",   # required for Docs API create/batchUpdate
+    "https://www.googleapis.com/auth/drive.file",  # so the doc shows up in the user's Drive
 ])
 
 # ── Google OAuth helpers ──────────────────────────────────────────────────────

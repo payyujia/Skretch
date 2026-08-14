@@ -34,6 +34,11 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=now)
 
+    # Google OAuth tokens — stored for Drive/Docs API calls on behalf of the user
+    google_access_token  = Column(Text, nullable=True)
+    google_refresh_token = Column(Text, nullable=True)
+    google_token_expiry  = Column(Float, nullable=True)  # Unix timestamp
+
     owned_boards = relationship("Board", back_populates="owner", foreign_keys="Board.owner_id")
 
 
@@ -53,7 +58,7 @@ class Node(Base):
     data = Column(JSON, default=dict)
     x = Column(Float, default=0)
     y = Column(Float, default=0)
-    created_by = Column(String, default="user")  # "user" | "agent"
+    created_by = Column(String, default="user")
     parent_id = Column(String, ForeignKey("nodes.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=now)
     updated_at = Column(DateTime, default=now, onupdate=now)

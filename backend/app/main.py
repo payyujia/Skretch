@@ -2,6 +2,7 @@ import asyncio
 import io
 import json
 import logging
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -14,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from . import crud, schemas, agent, ai_gateway, auth as auth_module
+from . import crud, schemas, agent, ai_gateway, auth as auth_module, export as export_module
 from .database import engine, Base, get_db
 
 Base.metadata.create_all(bind=engine)
@@ -61,6 +62,9 @@ async def auth_callback(code: str, db: Session = Depends(get_db)):
         email=userinfo.get("email", ""),
         name=userinfo.get("name", ""),
         avatar_url=userinfo.get("picture"),
+        access_token=tokens.get("access_token"),
+        refresh_token=tokens.get("refresh_token"),
+        token_expiry=time.time() + tokens.get("expires_in", 3600),
     )
 
     jwt_token = auth_module.create_jwt(user.id, user.email)
@@ -72,6 +76,31 @@ async def auth_callback(code: str, db: Session = Depends(get_db)):
 def auth_me(current_user=Depends(auth_module.require_user)):
     """Return the currently authenticated user's profile."""
     return current_user
+
+
+# ── Export ────────────────────────────────────────────────────────────────────
+
+@app.post("/api/export/docs", response_model=schemas.ExportResult)
+async def export_to_google_docs(
+    req: schemas.ExportRequest,
+    current_user=Depends(auth_module.require_user),
+    db: Session = Depends(get_db),
+):
+    """Generate an AI-authored document from the board and create it in Google Docs."""
+    try:
+        result = await export_module.export_board_to_docs(
+            user=current_user,
+            db=db,
+            board_id=req.board_id,
+            payload=req.payload,
+            fmt_hint=req.format,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error("Export failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Export failed: {exc}")
+    return result
 
 
 # ── Boards REST API ───────────────────────────────────────────────────────────

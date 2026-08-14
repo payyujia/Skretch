@@ -9,7 +9,7 @@ class NodeCreate(BaseModel):
     data: dict[str, Any] = {}
     x: float
     y: float
-    created_by: str = "user"
+    created_by: str
     parent_id: Optional[str] = None
 
 
@@ -77,3 +77,15 @@ class BoardDetail(BaseModel):
 
 class BoardListOut(BaseModel):
     boards: list[BoardDetail]
+
+
+class ExportRequest(BaseModel):
+    board_id: int
+    payload: dict
+    format: str = "auto"   # "essay" | "prd" | "auto"
+
+
+class ExportResult(BaseModel):
+    doc_url: str
+    doc_id: str
+    title: str

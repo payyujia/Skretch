@@ -210,6 +210,9 @@ def upsert_user(
     email: str,
     name: str,
     avatar_url: str | None = None,
+    access_token: str | None = None,
+    refresh_token: str | None = None,
+    token_expiry: float | None = None,
 ) -> models.User:
     """Create or update a user record from Google OAuth info."""
     user = get_user_by_google_id(db, google_id)
@@ -222,6 +225,13 @@ def upsert_user(
             google_id=google_id, email=email, name=name, avatar_url=avatar_url
         )
         db.add(user)
+    # Always update tokens when provided (refresh may give a new access token)
+    if access_token:
+        user.google_access_token = access_token
+    if refresh_token:  # only present on first auth or re-consent
+        user.google_refresh_token = refresh_token
+    if token_expiry:
+        user.google_token_expiry = token_expiry
     db.commit()
     db.refresh(user)
     return user
