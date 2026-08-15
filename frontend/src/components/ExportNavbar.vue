@@ -103,7 +103,6 @@ const presenceUsers = computed(() => Object.values(board.presence))
       </button>
       <span class="board-name">{{ board.currentBoardName || 'Board' }}</span>
     </div>
-
     <!-- ── Center: presence avatars ── -->
     <div class="nav-center">
       <div class="presence-stack" v-if="presenceUsers.length">

@@ -141,14 +141,12 @@ def add_collaborator(
 
 
 # ── Board & Node REST endpoints ───────────────────────────────────────────────
-
 @app.get("/api/board", response_model=schemas.BoardOut)
 def read_board(board_id: int = Query(...), db: Session = Depends(get_db)):
+    board = crud.ensure_board_entity(db, board_id)
     nodes = crud.get_board(db, board_id=board_id)
-    # Touch last_visited_at if the board entity exists
     crud.touch_board(db, board_id)
-    return {"nodes": nodes}
-
+    return {"board_id": board.board_id, "name": board.name, "nodes": nodes}
 
 def _node_broadcast_payload(event_type: str, node) -> dict:
     return {

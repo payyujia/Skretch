@@ -35,10 +35,10 @@ class NodeOut(BaseModel):
     created_by: str
     parent_id: Optional[str] = None
 
-
 class BoardOut(BaseModel):
+    board_id: int
+    name: str
     nodes: list[NodeOut]
-
 
 class ImageUploadOut(BaseModel):
     url: str

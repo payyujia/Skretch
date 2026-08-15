@@ -57,7 +57,7 @@ export const useBoardStore = defineStore('board', {
       if (!id) throw new Error('fetchBoard: no boardId provided')
       if (boardId) this.currentBoardId = boardId
       const board = await api.getBoard(id)
-      if (board.board_name) this.currentBoardName = board.board_name
+      this.currentBoardName = board.name ?? ''
 
       const byServerId = new Map()
       const localNodes = board.nodes.map((raw) => {
