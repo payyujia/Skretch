@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { isReactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBoardStore } from '../stores/board'
 
@@ -109,12 +109,12 @@ const presenceUsers = computed(() => Object.values(board.presence))
       <div class="presence-stack" v-if="presenceUsers.length">
         <div
           v-for="u in presenceUsers.slice(0, 5)"
-          :key="u.connId"
+          :key="u.userId"
           class="presence-avatar"
           :style="{ background: u.color, borderColor: u.color }"
           :title="u.name || u.userId"
         >
-          <img v-if="u.avatarUrl" :src="u.avatarUrl" :alt="u.name" />
+          <img v-if="u.avatar" :src="u.avatar" :alt="u.name" />
           <span v-else>{{ (u.name || '?')[0].toUpperCase() }}</span>
         </div>
         <span v-if="presenceUsers.length > 5" class="presence-overflow">

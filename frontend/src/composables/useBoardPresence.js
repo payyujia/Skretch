@@ -31,7 +31,7 @@ export function useBoardPresence() {
   function handleMessage(raw) {
     let msg
     try { msg = JSON.parse(raw) } catch { return }
-
+    console.log(msg)
     switch (msg.type) {
       case 'node_created':
         board.applyPlaced({ tempId: null, node: msg.node })

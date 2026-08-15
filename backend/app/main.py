@@ -67,7 +67,7 @@ async def auth_callback(code: str, db: Session = Depends(get_db)):
         token_expiry=time.time() + tokens.get("expires_in", 3600),
     )
 
-    jwt_token = auth_module.create_jwt(user.id, user.email)
+    jwt_token = auth_module.create_jwt(user.id, user.email, name=user.name, avatar_url=user.avatar_url)
     frontend_url = auth_module.FRONTEND_URL
     return RedirectResponse(f"{frontend_url}/?token={jwt_token}")
 
@@ -371,7 +371,8 @@ async def board_presence_ws(ws: WebSocket, board_id: int):
         try:
             payload = auth_module.verify_jwt(token)
             user_id = payload["sub"]
-            user_name = payload.get("name", payload.get("email", "User"))
+            user_name = payload.get("name") or payload.get("email", "User")
+            user_avatar = payload.get("avatar_url") or ""
         except Exception:
             pass  # fall through as anon
 

@@ -90,12 +90,14 @@ async def get_google_userinfo(access_token: str) -> dict:
 
 # ── JWT helpers ───────────────────────────────────────────────────────────────
 
-def create_jwt(user_id: str, email: str) -> str:
+def create_jwt(user_id: str, email: str, name: str = "", avatar_url: str | None = None) -> str:
     payload = {
-        "sub":   user_id,
-        "email": email,
-        "iat":   int(time.time()),
-        "exp":   int(time.time()) + JWT_TTL_SECS,
+        "sub":        user_id,
+        "email":      email,
+        "name":       name,
+        "avatar_url": avatar_url,
+        "iat":        int(time.time()),
+        "exp":        int(time.time()) + JWT_TTL_SECS,
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 

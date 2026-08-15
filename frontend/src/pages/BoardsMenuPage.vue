@@ -293,32 +293,6 @@ function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
 }
 .btn-outline-sm:hover { border-color: var(--muted); color: var(--ink); }
 
-.user-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-left: 12px;
-  border-left: 1px solid var(--border);
-}
-.avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 2px solid var(--muted);
-  object-fit: cover;
-}
-.avatar-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--canvas-bg);
-  font-size: 13px;
-  font-weight: 700;
-}
 .user-name {
   font-size: 12px;
   font-weight: 600;

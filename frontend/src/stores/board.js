@@ -12,7 +12,11 @@ const EDIT_ON_CREATE_TYPES = new Set(['document'])
  * Single point of truth for turning a raw node — from the REST response
  * (`fetchBoard`) or a WS event (`applyPlaced`/`applyUpdated`) — into the
  * shape the store/components use. Backend fields may arrive snake_case or
- * camelCase depending on the path; this is the only place that cares.
+ * camelCase depending on the path; normalise here
+ * 
+ * state = reactive data (like Vue's data())
+ * getters = derived/computed values (like computed)
+ * actions = methods (like methods, can be async, can mutate state)
  */
 function normalizeNode(raw) {
   return {
@@ -241,7 +245,7 @@ export const useBoardStore = defineStore('board', {
     // --- presence ---
     applyPresence(users) {
       const map = {}
-      for (const u of users) map[u.connId] = u
+      for (const u of users) map[u.userId] = u
       this.presence = map
     },
 

@@ -20,7 +20,24 @@ const board = useBoardStore()
 const tool = useToolStore()
 const auth = useAuthStore()
 const presence = useBoardPresence()
-const { screenToFlowCoordinate, findNode } = useVueFlow()
+const { screenToFlowCoordinate, flowToScreenCoordinate, findNode } = useVueFlow()
+
+// ── Cursor broadcast ──────────────────────────────────────────────────────────
+function onMouseMove(event) {
+  const flowPos = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+  presence.sendCursor(flowPos.x, flowPos.y)
+}
+
+// ── Remote cursors — exclude self, convert flow→screen for overlay placement ─
+const remoteCursors = computed(() => {
+  const myId = auth.user?.id
+  return Object.values(board.presence).filter(
+    (u) => u.userId !== myId && u.x != null && u.y != null
+  ).map((u) => {
+    const screen = flowToScreenCoordinate({ x: u.x, y: u.y })
+    return { ...u, sx: screen.x, sy: screen.y }
+  })
+})
 const hoveredNodeId = ref(null)
 const chatRef = ref(null)
 
@@ -217,7 +234,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="canvas-wrapper" @dblclick="onPaneDoubleClick">
+  <div class="canvas-wrapper" @dblclick="onPaneDoubleClick" @mousemove="onMouseMove">
     <VueFlow
       :nodes="flowNodes"
       :default-viewport="{ zoom: 1 }"
@@ -249,6 +266,29 @@ onUnmounted(() => {
         <span>pick a tool below to draw or add other node types</span>
       </div>
     </transition>
+
+    <!-- Remote cursors overlay -->
+    <div class="cursor-overlay" aria-hidden="true">
+      <div
+        v-for="cursor in remoteCursors"
+        :key="cursor.userId"
+        class="remote-cursor"
+        :style="{ transform: `translate(${cursor.sx}px, ${cursor.sy}px)` }"
+      >
+        <svg class="cursor-svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path
+            d="M4 2L16.5 9.5L10.5 11L8 17.5L4 2Z"
+            :fill="cursor.color"
+            stroke="white"
+            stroke-width="1.2"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="cursor-label" :style="{ background: cursor.color }">
+          {{ cursor.name }}
+        </span>
+      </div>
+    </div>
 
     <Toolbar />
     <ChatPopover ref="chatRef" :board-id="props.boardId"/>
@@ -321,5 +361,44 @@ onUnmounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* ── Remote cursor overlay ─────────────────────────────────────────────────── */
+.cursor-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 20;
+}
+
+.remote-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  will-change: transform;
+  transition: transform 80ms linear;
+}
+
+.cursor-svg {
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+  flex-shrink: 0;
+}
+
+.cursor-label {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  letter-spacing: 0.01em;
 }
 </style>
