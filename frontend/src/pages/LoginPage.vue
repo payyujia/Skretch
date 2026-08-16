@@ -1,49 +1,24 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
 
-const mode = ref('login') // 'login' | 'signup'
-const username = ref('')
-const password = ref('')
-const confirmPassword = ref('')
+const guestLoading = ref(false)
 const error = ref(null)
-const loading = ref(false)
 
-const isLogin = computed(() => mode.value === 'login')
-
-function toggleMode() {
-  mode.value = isLogin.value ? 'signup' : 'login'
+async function handleGuestLogin() {
   error.value = null
-  password.value = ''
-  confirmPassword.value = ''
-}
-
-async function submit() {
-  error.value = null
-  if (!username.value.trim() || !password.value.trim()) {
-    error.value = 'Username and password are required.'
-    return
-  }
-  if (!isLogin.value && password.value !== confirmPassword.value) {
-    error.value = 'Passwords do not match.'
-    return
-  }
-  loading.value = true
+  guestLoading.value = true
   try {
-    if (isLogin.value) {
-      await auth.login({ username: username.value, password: password.value })
-    } else {
-      await auth.register({ username: username.value, password: password.value })
-    }
-    router.push({ name: 'boards' })
+    const boardId = await auth.loginAsGuest()
+    router.push(boardId ? { name: 'canvas', params: { id: boardId } } : { name: 'boards' })
   } catch (err) {
-    error.value = err.message || (isLogin.value ? 'Login failed.' : 'Sign-up failed.')
+    error.value = err.message || 'Guest sign-in failed.'
   } finally {
-    loading.value = false
+    guestLoading.value = false
   }
 }
 </script>
@@ -60,79 +35,41 @@ async function submit() {
 
         <!-- Card heading -->
         <div class="auth-heading">
-          <h1 class="auth-title">{{ isLogin ? 'Welcome back' : 'Create account' }}</h1>
-          <p class="auth-sub">
-            {{
-              isLogin
-                ? 'Sign in to continue to your boards.'
-                : 'Get started — it\'s free.'
-            }}
-          </p>
+          <h1 class="auth-title">Welcome</h1>
+          <p class="auth-sub">Sign in to continue to your boards.</p>
         </div>
-        <button class="btn-google" @click="auth.loginWithGoogle()">
-          <svg class="google-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            <path fill="none" d="M0 0h48v48H0z"/>
-          </svg>
-          Continue with Google
+
+        <!-- Google sign-in — styled per Google Identity brand guidelines -->
+        <button class="gsi-material-button" type="button" @click="auth.loginWithGoogle()">
+          <div class="gsi-material-button-state" />
+          <div class="gsi-material-button-content-wrapper">
+            <div class="gsi-material-button-icon">
+              <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                <path fill="none" d="M0 0h48v48H0z"/>
+              </svg>
+            </div>
+            <span class="gsi-material-button-contents">Sign in with Google</span>
+          </div>
         </button>
-        <!-- Form -->
-        <form class="auth-form" @submit.prevent="submit" novalidate>
-          <div class="field">
-            <label for="username">Username</label>
-            <input
-              id="username"
-              v-model="username"
-              type="text"
-              autocomplete="username"
-              placeholder="you"
-              :disabled="loading"
-            />
-          </div>
 
-          <div class="field">
-            <label for="password">Password</label>
-            <input
-              id="password"
-              v-model="password"
-              type="password"
-              autocomplete="current-password"
-              placeholder="••••••••"
-              :disabled="loading"
-            />
-          </div>
+        <!-- Divider -->
+        <div class="divider-row">
+          <span class="divider-line" />
+          <span class="divider-text">or</span>
+          <span class="divider-line" />
+        </div>
 
-          <div v-if="!isLogin" class="field">
-            <label for="confirmPassword">Confirm password</label>
-            <input
-              id="confirmPassword"
-              v-model="confirmPassword"
-              type="password"
-              autocomplete="new-password"
-              placeholder="••••••••"
-              :disabled="loading"
-            />
-          </div>
+        <!-- Guest sign-in -->
+        <button class="guest-btn" type="button" :disabled="guestLoading" @click="handleGuestLogin">
+          {{ guestLoading ? 'Entering…' : 'Sign in as guest' }}
+        </button>
 
-          <!-- Error -->
-          <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
-
-          <!-- Submit -->
-          <button type="submit" class="submit-btn" :disabled="loading">
-            {{ loading ? '…' : isLogin ? 'Sign in' : 'Create account' }}
-          </button>
-        </form>
-
-        <!-- Toggle mode -->
-        <p class="toggle-row">
-          {{ isLogin ? 'No account yet?' : 'Already have an account?' }}
-          <button type="button" class="toggle-btn" @click="toggleMode">
-            {{ isLogin ? 'Sign up' : 'Sign in' }}
-          </button>
-        </p>
+        <!-- Error -->
+        <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
 
       </div>
     </div>
@@ -156,12 +93,10 @@ async function submit() {
   }
 }
 
-/* ── Left: brand panel — intentionally empty ── */
 .brand-panel {
   background: var(--canvas-bg);
 }
 
-/* ── Right: auth panel ── */
 .auth-panel {
   background: var(--surface);
   display: flex;
@@ -176,14 +111,14 @@ async function submit() {
   max-width: 380px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 20px;
 }
 
-/* ── Heading ── */
 .auth-heading {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-bottom: 8px;
 }
 
 .auth-title {
@@ -203,47 +138,136 @@ async function submit() {
   margin: 0;
 }
 
-/* ── Form ── */
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+/* ── Google button — per Google Identity Services brand guidelines ──
+   https://developers.google.com/identity/branding-guidelines
+   White surface, #747775 border/text, Roboto, 40px min height, 8px icon gutter. */
+.gsi-material-button {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: WHITE;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: #1f1f1f;
+  cursor: pointer;
+  font-family: Roboto, arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  height: 40px;
+  letter-spacing: 0.25px;
+  outline: none;
+  overflow: hidden;
+  padding: 0 12px;
+  position: relative;
+  text-align: center;
+  transition: background-color .218s, border-color .218s, box-shadow .218s;
+  vertical-align: middle;
+  width: 100%;
 }
 
-.field {
+.gsi-material-button .gsi-material-button-content-wrapper {
+  align-items: center;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  height: 100%;
+  justify-content: center;
+  position: relative;
+  width: 100%;
 }
 
-.field label {
+.gsi-material-button .gsi-material-button-icon {
+  height: 20px;
+  margin-right: 12px;
+  min-width: 20px;
+  width: 20px;
+}
+
+.gsi-material-button .gsi-material-button-contents {
+  flex-grow: 1;
+  font-family: Roboto, arial, sans-serif;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top;
+}
+
+.gsi-material-button .gsi-material-button-state {
+  transition: opacity .218s;
+  bottom: 0;
+  left: 0;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  background-color: #1f1f1f;
+}
+
+.gsi-material-button:hover .gsi-material-button-state {
+  opacity: 4%;
+}
+
+.gsi-material-button:active .gsi-material-button-state {
+  opacity: 12%;
+}
+
+.gsi-material-button:disabled {
+  cursor: default;
+  background-color: #ffffff61;
+  border-color: #1f1f1f1f;
+}
+
+.gsi-material-button:disabled .gsi-material-button-contents,
+.gsi-material-button:disabled .gsi-material-button-icon {
+  opacity: 38%;
+}
+
+/* ── Divider ── */
+.divider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.divider-text {
   font-family: var(--font-body);
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: 0.03em;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.field input {
-  height: 42px;
-  padding: 0 14px;
+/* ── Guest button ── */
+.guest-btn {
+  height: 44px;
+  width: 100%;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
   background: var(--canvas-bg);
   color: var(--ink);
   font-family: var(--font-body);
+  font-weight: 600;
   font-size: 14px;
-  outline: none;
-  transition: border-color 0.15s, background 0.15s;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 
-.field input:focus {
-  border-color: var(--ink);
+.guest-btn:hover:not(:disabled) {
   background: var(--surface);
+  border-color: var(--ink);
 }
 
-.field input:disabled {
-  opacity: 0.5;
+.guest-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.guest-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -257,62 +281,5 @@ async function submit() {
   padding: 8px 12px;
   border-radius: var(--radius);
   margin: 0;
-}
-
-/* ── Submit button ── */
-.submit-btn {
-  height: 44px;
-  width: 100%;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--ink);
-  color: var(--surface);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
-}
-
-.submit-btn:hover:not(:disabled) {
-  opacity: 0.88;
-  transform: translateY(-1px);
-}
-
-.submit-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.submit-btn:disabled {
-  background: var(--border);
-  color: var(--muted);
-  cursor: not-allowed;
-}
-
-/* ── Toggle row ── */
-.toggle-row {
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--muted);
-  text-align: center;
-  margin: 0;
-}
-
-.toggle-btn {
-  border: none;
-  background: none;
-  color: var(--user-accent);
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0 2px;
-  text-decoration: underline;
-  transition: color 0.15s;
-}
-
-.toggle-btn:hover {
-  color: color-mix(in oklab, var(--user-accent), black 15%);
 }
 </style>

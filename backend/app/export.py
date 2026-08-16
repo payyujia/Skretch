@@ -44,7 +44,7 @@ async def ensure_fresh_token(user: models.User, db: Session) -> str:
     if not user.google_access_token:
         raise ValueError(
             "No Google access token stored. Please sign out and sign back in "
-            "to grant Google Drive access."
+            "to grant Google suite access."
         )
     # Still fresh (> 60 s until expiry) — use as-is
     if user.google_token_expiry and time.time() < user.google_token_expiry - 60:

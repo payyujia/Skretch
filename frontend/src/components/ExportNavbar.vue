@@ -150,15 +150,13 @@ const presenceUsers = computed(() => Object.values(board.presence))
     <Transition name="panel-slide">
       <div v-if="showPanel" class="export-panel">
         <div class="panel-header">
-          <h3 class="panel-title">
-            <span class="title-stamp">■</span> EXPORT PREVIEW
-          </h3>
-          <button class="panel-close" @click="showPanel = false">✕</button>
+          <h3 class="panel-title">Export Preview</h3>
+          <button class="node-remove" @click="showPanel = false">✕</button>
         </div>
 
         <p class="panel-description">
-          The AI reads your board — frames, stickies, reactions, and citations —
-          and writes a structured document with proper headings, analysis, and footnotes.
+          Your brainstorming will be turned into full documentation. Read below for the context gleaned. Comprehensive whiteboards reap satisfying outputs.
+          Make sure to plan well with Skretchpad before exporting!
         </p>
 
         <!-- Format selector -->
@@ -261,7 +259,7 @@ const presenceUsers = computed(() => Object.values(board.presence))
 
 .board-name {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 800;
   font-size: 14px;
   color: var(--ink);
   white-space: nowrap;
@@ -286,6 +284,7 @@ const presenceUsers = computed(() => Object.values(board.presence))
 
 .presence-avatar {
   display: flex;
+  color:var(--surface);
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -365,8 +364,9 @@ const presenceUsers = computed(() => Object.values(board.presence))
   right: 0;
   bottom: 0;
   width: 380px;
-  background: #0d0d0d;
-  border-left: 2px solid #2f5fe0;
+  background:var(--surface);
+  border: 2px solid var(--border);
+  border-radius:var(--radius);
   z-index: 200;
   display: flex;
   flex-direction: column;
@@ -382,48 +382,26 @@ const presenceUsers = computed(() => Object.values(board.presence))
 }
 
 .panel-title {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 700;
-  color: #f5f0e8;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin:0;
 }
-
-.title-stamp {
-  color: #2f5fe0;
-}
-
-.panel-close {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px;
-  line-height: 1;
-  transition: color 0.15s;
-}
-.panel-close:hover { color: #f5f0e8; }
 
 .panel-description {
   font-family: var(--font-mono);
-  font-size: 11px;
   color: var(--muted);
   margin: 0;
-  line-height: 1.5;
+  font-size: 12px;
 }
 
 .json-preview {
   flex: 1;
   overflow-y: auto;
-  background: #111;
-  border: 1px solid #2a2a2a;
-  border-radius: 6px;
+  background: var(--border-strong);
+  border-radius: var(--radius);
   padding: 12px;
 }
 
@@ -432,7 +410,7 @@ const presenceUsers = computed(() => Object.values(board.presence))
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.6;
-  color: #a8d4ff;
+  color:var(--accent-blue);
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -464,8 +442,8 @@ const presenceUsers = computed(() => Object.values(board.presence))
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
-  border: 1.5px solid #2a2a2a;
-  border-radius: 5px;
+  border: 1.5px solid var(--accent-yellow);
+  border-radius: 0.5rem;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -475,10 +453,9 @@ const presenceUsers = computed(() => Object.values(board.presence))
 }
 
 .format-option.active {
-  border-color: #2f5fe0;
-  background: rgba(47, 95, 224, 0.1);
+  background-color: var(--accent-mint-surface);
+  border-color: var(--accent-mint);
 }
-
 .format-option-text {
   display: flex;
   flex-direction: column;
@@ -486,38 +463,41 @@ const presenceUsers = computed(() => Object.values(board.presence))
 }
 
 .format-option-text strong {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  color: #f5f0e8;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--accent-yellow-dark);
   line-height: 1;
 }
 
+.format-option.active .format-option-text strong {
+  color: var(--accent-mint-dark);
+}
+
 .format-option-text small {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 9px;
   color: var(--muted);
-  line-height: 1;
+  line-height: 1.5;
 }
 
 /* ── Status messages ── */
 .status-success{
   font-family: var(--font-mono);
   font-size: 12px;
-  color: #4caf50;
+  color: var(--success);
   padding: 8px 12px;
-  background: rgba(76, 175, 80, 0.1);
-  border: 1px solid rgba(76, 175, 80, 0.3);
+  background: var(--canvas-bg);
+  border: 1px solid var(--success-tint);
   border-radius: 4px;
 }
 
 .status-error {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: #f43f5e;
+  color: var(--danger);
   padding: 8px 12px;
-  background: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.3);
+  background: var(--accent-coral-surface);
+  border: 1px solid var(--accent-coral);
   border-radius: 4px;
 }
 
@@ -529,30 +509,29 @@ const presenceUsers = computed(() => Object.values(board.presence))
 .cancel-btn {
   flex: 1;
   height: 38px;
+  font-family: var(--font-display);
   background: transparent;
-  border: 1.5px solid #2a2a2a;
+  border: 1.5px solid var(--border);
   color: var(--muted);
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  border-radius: 0.5rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   transition: all 0.15s;
 }
 .cancel-btn:hover {
-  border-color: #f5f0e8;
-  color: #f5f0e8;
+  background: var(--danger);
+  color: var(--surface);
 }
 
 .confirm-btn {
   flex: 2;
   height: 38px;
-  background: #2f5fe0;
+  background: var(--user-accent);
   border: none;
-  color: #fff;
-  border-radius: 4px;
-  font-family: var(--font-mono);
+  color: var(--surface);
+  border-radius: 0.5rem;
+  font-family: var(--font-display);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -564,8 +543,8 @@ const presenceUsers = computed(() => Object.values(board.presence))
   transition: all 0.15s;
 }
 .confirm-btn:hover:not(:disabled) {
-  background: #1e4bc4;
-  transform: translateY(-1px);
+  background: var(--agent-accent);
+  transform: translateY(1px);
 }
 .confirm-btn:disabled {
   opacity: 0.6;
@@ -576,7 +555,7 @@ const presenceUsers = computed(() => Object.values(board.presence))
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
+  border-top-color: var(--surface);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }

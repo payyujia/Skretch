@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import time
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -71,7 +72,21 @@ async def auth_callback(code: str, db: Session = Depends(get_db)):
     frontend_url = auth_module.FRONTEND_URL
     return RedirectResponse(f"{frontend_url}/?token={jwt_token}")
 
+@app.post("/api/auth/guest")
+def guest_login(db: Session = Depends(get_db)):
+    """Create a throwaway guest user and log them in immediately — no consent screen, no password."""
+    guest_id = f"guest_{uuid.uuid4().hex[:12]}"
+    user = crud.upsert_user(db,
+        google_id=guest_id, #unique and shouldnt clash with googleid
+        email=f"{guest_id}@skretch.pad",
+        name="Guest",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
 
+    jwt_token = auth_module.create_jwt(user.id, user.email, name=user.name, avatar_url=user.avatar_url)
+    return {"access_token": jwt_token}    
 @app.get("/api/auth/me", response_model=schemas.UserOut)
 def auth_me(current_user=Depends(auth_module.require_user)):
     """Return the currently authenticated user's profile."""

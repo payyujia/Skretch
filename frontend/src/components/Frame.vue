@@ -36,7 +36,6 @@ const width = computed(() => props.data.data?.width ?? 500)
 const height = computed(() => props.data.data?.height ?? 700)
 
 const colorName = computed(() => props.data.data?.color ?? colorOptions[0].name)
-const colorHex = computed(() => colorOptions.find((c) => c.name === colorName.value)?.hex ?? colorOptions[0].hex)
 
 function nextColor() {
   const index = colorOptions.findIndex((c) => c.name === colorName.value)
@@ -99,11 +98,11 @@ function onResizeStart(event) {
   <div
     class="board-node frame"
     :class="[{ selected: isSelected, resizing }]"
-    :style="{ width: `${width}px`, height: `${height}px`, '--frame-color': colorHex }"
+    :style="{ width: `${width}px`, height: `${height}px`,  border: `1.6px dashed var(--accent-${colorName})` }"
   >
     <div class="frame-top">
       <div class="frame-label" @dblclick.stop="startEditing">
-        <div class="frame-header-row">
+        <div class="frame-header-row" :style="{color:`var(--accent-${colorName}-dark)`}">
           <input
             v-if="isEditing"
             ref="inputRef"
@@ -115,7 +114,7 @@ function onResizeStart(event) {
             @pointerdown.stop
           />
           <span v-else class="frame-header" :class="{ empty: !header }">
-            {{ header || 'Big idea' }}
+            {{ header || 'Untitled cluster' }}
           </span>
         </div>
 
@@ -129,7 +128,7 @@ function onResizeStart(event) {
           class="color-swatch"
           @click.stop="nextColor"
           title="Cycle color"
-          :style="{ backgroundColor: colorHex }"
+          :style="{ backgroundColor: `var(--accent-${colorName})` }"
         />
         <button type="button" class="node-remove" @click.stop="board.deleteNode(id)">
           <Trash2 :size="14" />
@@ -144,7 +143,6 @@ function onResizeStart(event) {
 /* ── Frame container ──────────────────────────────────────────────── */
 .frame {
   background: transparent;
-  border: 1.6px dashed var(--frame-color);
   border-radius: 10px;
   padding: 0;
   z-index: 0;
@@ -198,7 +196,6 @@ function onResizeStart(event) {
   font-size: 24px;
   letter-spacing: -0.01em;
   line-height: 1.2;
-  color: color-mix(in oklch, var(--frame-color) 100%, black 30%);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -206,7 +203,6 @@ function onResizeStart(event) {
 }
 
 .frame-header.empty {
-  color: color-mix(in oklab, var(--frame-color), transparent 40%);
   font-weight: 500;
   font-style: italic;
 }

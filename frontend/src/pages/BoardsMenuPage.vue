@@ -149,11 +149,10 @@ function logout() {
         <div
           v-for="board in filtered"
           :key="board.id"
-          class="board-card accent-surface"
+          class="board-card"
           :data-accent="accentForId(board.id)"
           tabindex="0"
-          @click="openBoard(board)"
-          <!-- Top spacer (the accent border-top from .accent-surface shows here) -->
+          @click="openBoard(board)">
           <div class="card-body">
             <p class="card-name">{{ board.name }}</p>
             <p class="card-meta">
@@ -416,7 +415,6 @@ function logout() {
   transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 
-/* accent-surface top border handled in style.css */
 
 .board-card:hover {
   box-shadow: var(--shadow-md);

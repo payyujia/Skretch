@@ -25,7 +25,17 @@
   --accent-mint:   rgb(110 231 183);
   --accent-blue:   rgb(125 211 252);
   --accent-coral:  rgb(253 164 175);
-
+  --accent-purple-surface: rgb(235 218 254);
+  --accent-yellow-surface: rgb(254 233 166);
+  --accent-mint-surface: rgb(182 243 219);
+  --accent-blue-surface: rgb(190 233 253);
+  --accent-coral-surface: rgb(254 210 215);
+  --accent-purple-dark: rgb(66, 4, 137);
+  --accent-yellow-dark: rgb(152, 117, 0);
+  --accent-mint-dark: #037152;
+  --accent-blue-dark: #025d8e;
+  --accent-coral-dark: #a70835;
+  
   --font-display: ui-sans-serif,system-ui,sans-serif,"Apple Color Emoji","Segoe UI Emoji",Segoe UI Symbol,"Noto Color Emoji";
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -33,18 +43,6 @@
   --radius: .75rem;
 }
 
-/* ── Accent-surface pattern ─────────────────────────────────────────────── */
-/* Apply class="accent-surface" + data-accent="purple|yellow|mint|blue|coral"
-   to any card that needs the tinted bg + 4px border-top accent look.        */
-.accent-surface {
-  border-top-width: 4px;
-  border-top-style: solid;
-}
-.accent-surface[data-accent="purple"] { background-color: color-mix(in oklab, var(--accent-purple), white 50%); border-top-color: var(--accent-purple); }
-.accent-surface[data-accent="yellow"] { background-color: color-mix(in oklab, var(--accent-yellow), white 50%); border-top-color: var(--accent-yellow); }
-.accent-surface[data-accent="mint"]   { background-color: color-mix(in oklab, var(--accent-mint),   white 50%); border-top-color: var(--accent-mint); }
-.accent-surface[data-accent="blue"]   { background-color: color-mix(in oklab, var(--accent-blue),   white 50%); border-top-color: var(--accent-blue); }
-.accent-surface[data-accent="coral"]  { background-color: color-mix(in oklab, var(--accent-coral),  white 50%); border-top-color: var(--accent-coral); }
 
 * {
   box-sizing: border-box;

@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/auth'
 // Lazy-load pages so the canvas bundle isn't pulled on the login page
 const LoginPage      = () => import('../pages/LoginPage.vue')
 const BoardsMenuPage = () => import('../pages/BoardsMenuPage.vue')
-const CanvasWrapper  = () => import('../pages/CanvasWrapper.vue')
+const Canvas  = () => import('../pages/Canvas.vue')
 
 const routes = [
   {
@@ -22,7 +22,8 @@ const routes = [
   {
     path: '/board/:id',
     name: 'canvas',
-    component: CanvasWrapper,
+    component: Canvas,
+    props: (route) => ({ boardId: Number(route.params.id) }),
     meta: { requiresAuth: true },
   },
   // Catch-all → back to root

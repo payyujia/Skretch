@@ -17,8 +17,16 @@ export const useAuthStore = defineStore('auth', () => {
   /** Kick off the Google OAuth redirect */
   function loginWithGoogle() {
     window.location.href = `${BASE}/api/auth/google`
-    console.log(window.localtion.href)
   }
+  async function loginAsGuest() {
+  const res = await fetch(`${BASE}/api/auth/guest`, { method: 'POST' })
+  if (!res.ok) throw new Error('Guest sign-in failed.')
+  const data = await res.json()
+  token.value = data.access_token
+  localStorage.setItem(STORAGE_KEY, data.access_token)
+  await fetchMe()
+  return data.demo_board_id
+}
 
   /**
    * Called by the router after Google redirects back with ?token=<jwt>.
@@ -59,5 +67,5 @@ export const useAuthStore = defineStore('auth', () => {
     fetchMe()
   }
 
-  return { token, user, isLoggedIn, loginWithGoogle, handleCallback, fetchMe, logout }
+  return { token, user, isLoggedIn, loginAsGuest, loginWithGoogle, handleCallback, fetchMe, logout }
 })
