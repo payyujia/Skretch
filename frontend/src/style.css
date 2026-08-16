@@ -180,7 +180,9 @@ textarea {
 .color-swatch.active {
   box-shadow: 0 0 0 1px var(--user-accent );
 }
-
+.color-swatch:hover{
+  box-shadow: 0 0 0 1px var(--user-accent );
+}
 .node-typing-dots {
   display: inline-flex;
   gap: 3px;

@@ -109,7 +109,7 @@ function onResizeStart(event) {
             ref="inputRef"
             v-model="rawContent"
             class="frame-label-input nodrag"
-            placeholder="Header, Subheader"
+            placeholder="Header, description"
             @keydown="onKeydown"
             @blur="commit"
             @pointerdown.stop
@@ -143,25 +143,18 @@ function onResizeStart(event) {
 <style scoped>
 /* ── Frame container ──────────────────────────────────────────────── */
 .frame {
-  background: color-mix(in oklab, var(--frame-color), transparent 82%);
-  border: 1.5px solid color-mix(in oklab, var(--frame-color), transparent 30%);
-  border-top: 3px solid var(--frame-color);
+  background: transparent;
+  border: 1.6px dashed var(--frame-color);
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 0 transparent;
   padding: 0;
   z-index: 0;
   transition: box-shadow 0.2s, border-color 0.2s;
 }
 
-.frame:hover {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-}
-
 .frame.selected {
   z-index: -10 !important;
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--frame-color), transparent 20%),
-              0 4px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
 }
 
 .frame.resizing {
@@ -175,12 +168,12 @@ function onResizeStart(event) {
   left: 0;
   right: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 12px;
-  height: 44px;
-  border-bottom: 1px solid color-mix(in oklab, var(--frame-color), transparent 50%);
+  padding: 24px;
+  height: 100px;
+  border-bottom: 1px solid var(--border);
 }
 
 .frame-label {
@@ -202,7 +195,7 @@ function onResizeStart(event) {
 .frame-header {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 13px;
+  font-size: 24px;
   letter-spacing: -0.01em;
   line-height: 1.2;
   color: color-mix(in oklch, var(--frame-color) 100%, black 30%);
@@ -220,9 +213,9 @@ function onResizeStart(event) {
 
 .frame-subheader {
   font-family: var(--font-body);
-  font-size: 10.5px;
-  color: color-mix(in oklab, var(--frame-color), var(--muted) 50%);
-  line-height: 1.2;
+  font-size : 12px;
+  color: var(--muted);
+  line-height: 1.5;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -232,7 +225,7 @@ function onResizeStart(event) {
 .frame-label-input {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 13px;
+  font-size: 24px;
   color: var(--ink);
   border: none;
   border-bottom: 1.5px dashed color-mix(in oklab, var(--frame-color), transparent 30%);
@@ -247,7 +240,7 @@ function onResizeStart(event) {
 .frame-controls {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -255,38 +248,6 @@ function onResizeStart(event) {
 
 .frame:hover .frame-controls {
   opacity: 1;
-}
-
-.color-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(0,0,0,0.12);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.color-swatch:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--frame-color), transparent 30%);
-}
-
-.node-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  border-radius: 5px;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-}
-.node-remove:hover {
-  color: var(--danger);
-  background: var(--danger-tint);
 }
 
 /* ── Resize handle ── */

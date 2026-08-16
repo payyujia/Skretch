@@ -308,8 +308,7 @@ textarea.node-text {
 }
 
 .reaction-button:hover {
-  transform: translateY(-1px);
-  scale: 1.3;
+  transform: translateY(-1px) scale(1.3);
 }
 
 /* ── Source / Citations ──────────────────────────────────────────────────── */
