@@ -1,70 +1,74 @@
 <script setup>
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
+const router = useRouter()
 const auth = useAuthStore()
+
+const mode = ref('login') // 'login' | 'signup'
+const username = ref('')
+const password = ref('')
+const confirmPassword = ref('')
+const error = ref(null)
+const loading = ref(false)
+
+const isLogin = computed(() => mode.value === 'login')
+
+function toggleMode() {
+  mode.value = isLogin.value ? 'signup' : 'login'
+  error.value = null
+  password.value = ''
+  confirmPassword.value = ''
+}
+
+async function submit() {
+  error.value = null
+  if (!username.value.trim() || !password.value.trim()) {
+    error.value = 'Username and password are required.'
+    return
+  }
+  if (!isLogin.value && password.value !== confirmPassword.value) {
+    error.value = 'Passwords do not match.'
+    return
+  }
+  loading.value = true
+  try {
+    if (isLogin.value) {
+      await auth.login({ username: username.value, password: password.value })
+    } else {
+      await auth.register({ username: username.value, password: password.value })
+    }
+    router.push({ name: 'boards' })
+  } catch (err) {
+    error.value = err.message || (isLogin.value ? 'Login failed.' : 'Sign-up failed.')
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
-  <div class="login-root">
-    <!-- LEFT — brand panel -->
-    <div class="brand-panel">
-      <!-- scanline texture overlay -->
-      <div class="scanlines" aria-hidden="true" />
-      <!-- grid dots decoration -->
-      <div class="grid-dots" aria-hidden="true" />
+  <div class="login-shell">
 
-      <div class="brand-inner">
-        <div class="wordmark">
-          <span class="wordmark-sk">SK</span><span class="wordmark-retch">RETCH</span>
-        </div>
+    <!-- ── Left: brand panel (intentionally empty — fill later) ── -->
+    <div class="brand-panel" />
 
-        <p class="tagline">
-          <span class="cursor-blink">_</span> Cast a wider net.
-        </p>
-
-        <div class="feature-list" aria-label="Feature highlights">
-          <div class="feature-item">
-            <span class="feature-bullet">&#x25B6;</span>
-            AI-powered infinite canvas
-          </div>
-          <div class="feature-item">
-            <span class="feature-bullet">&#x25B6;</span>
-            Real-time multiplayer boards
-          </div>
-          <div class="feature-item">
-            <span class="feature-bullet">&#x25B6;</span>
-            Export to Google Docs &amp; Slides
-          </div>
-        </div>
-
-        <!-- decorative ticker -->
-        <div class="ticker" aria-hidden="true">
-          <span class="ticker-track">
-            BRAINSTORM &nbsp;&#x2022;&nbsp; RESEARCH &nbsp;&#x2022;&nbsp;
-            COLLABORATE &nbsp;&#x2022;&nbsp; EXPORT &nbsp;&#x2022;&nbsp;
-            BRAINSTORM &nbsp;&#x2022;&nbsp; RESEARCH &nbsp;&#x2022;&nbsp;
-            COLLABORATE &nbsp;&#x2022;&nbsp; EXPORT &nbsp;&#x2022;&nbsp;
-          </span>
-        </div>
-
-        <p class="copyright">&#xa9; 2026 SKRETCH &mdash; ALL RIGHTS RESERVED</p>
-      </div>
-    </div>
-
-    <!-- RIGHT — login card -->
+    <!-- ── Right: auth card ── -->
     <div class="auth-panel">
       <div class="auth-card">
-        <!-- card header stamp -->
-        <div class="card-stamp">&#x25A0; SECURE SIGN-IN</div>
 
-        <h1 class="card-title">Welcome back.</h1>
-        <p class="card-subtitle">
-          Sign in to access your boards and continue where you left off.
-        </p>
-
-        <div class="divider-rule" />
-
-        <!-- Google login button -->
+        <!-- Card heading -->
+        <div class="auth-heading">
+          <h1 class="auth-title">{{ isLogin ? 'Welcome back' : 'Create account' }}</h1>
+          <p class="auth-sub">
+            {{
+              isLogin
+                ? 'Sign in to continue to your boards.'
+                : 'Get started — it\'s free.'
+            }}
+          </p>
+        </div>
         <button class="btn-google" @click="auth.loginWithGoogle()">
           <svg class="google-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -75,318 +79,240 @@ const auth = useAuthStore()
           </svg>
           Continue with Google
         </button>
+        <!-- Form -->
+        <form class="auth-form" @submit.prevent="submit" novalidate>
+          <div class="field">
+            <label for="username">Username</label>
+            <input
+              id="username"
+              v-model="username"
+              type="text"
+              autocomplete="username"
+              placeholder="you"
+              :disabled="loading"
+            />
+          </div>
 
-        <!-- cosmetic divider -->
-        <div class="or-divider">
-          <span class="or-line" /><span class="or-text">OR</span><span class="or-line" />
-        </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              v-model="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              :disabled="loading"
+            />
+          </div>
 
-        <!-- static guest button — cosmetic only -->
-        <button class="btn-guest" disabled aria-disabled="true">
-          Continue as Guest <span class="coming-soon">COMING SOON</span>
-        </button>
+          <div v-if="!isLogin" class="field">
+            <label for="confirmPassword">Confirm password</label>
+            <input
+              id="confirmPassword"
+              v-model="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="••••••••"
+              :disabled="loading"
+            />
+          </div>
 
-        <p class="legal-note">
-          By signing in you agree to our
-          <a href="#" class="legal-link">Terms of Service</a> and
-          <a href="#" class="legal-link">Privacy Policy</a>.
+          <!-- Error -->
+          <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
+
+          <!-- Submit -->
+          <button type="submit" class="submit-btn" :disabled="loading">
+            {{ loading ? '…' : isLogin ? 'Sign in' : 'Create account' }}
+          </button>
+        </form>
+
+        <!-- Toggle mode -->
+        <p class="toggle-row">
+          {{ isLogin ? 'No account yet?' : 'Already have an account?' }}
+          <button type="button" class="toggle-btn" @click="toggleMode">
+            {{ isLogin ? 'Sign up' : 'Sign in' }}
+          </button>
         </p>
+
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* ── Import retro fonts ──────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;600;700&display=swap');
-
-/* ── Root layout: full-viewport split ──────────────────────────────────── */
-.login-root {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  font-family: 'IBM Plex Mono', monospace;
+/* ── Shell: two-column split ── */
+.login-shell {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100dvh;
 }
 
-/* ═══════════════════ LEFT — BRAND PANEL ══════════════════════════════════ */
+@media (max-width: 720px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+  }
+  .brand-panel {
+    display: none !important;
+  }
+}
+
+/* ── Left: brand panel — intentionally empty ── */
 .brand-panel {
-  position: relative;
-  flex: 0 0 55%;
-  background: #0d0d0d;
-  color: #f5f0e8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  background: var(--canvas-bg);
 }
 
-/* Scanlines overlay */
-.scanlines {
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.025) 2px,
-    rgba(255, 255, 255, 0.025) 4px
-  );
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Dot grid decoration (bottom-right quadrant) */
-.grid-dots {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 260px;
-  height: 260px;
-  background-image: radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px);
-  background-size: 20px 20px;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.brand-inner {
-  position: relative;
-  z-index: 2;
-  padding: 48px;
-  max-width: 520px;
-}
-
-/* Wordmark */
-.wordmark {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 72px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  margin-bottom: 24px;
-  user-select: none;
-}
-.wordmark-sk     { color: #2f5fe0; }
-.wordmark-retch  { color: #f5f0e8; }
-
-/* Tagline */
-.tagline {
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--border-strong);
-  margin-bottom: 36px;
-}
-
-.cursor-blink {
-  animation: blink 1s step-end infinite;
-  color: #2f5fe0;
-  font-weight: 700;
-}
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-
-/* Feature list */
-.feature-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 48px;
-}
-.feature-item {
-  font-size: 13px;
-  color: #9ca3af;
-  letter-spacing: 0.05em;
-}
-.feature-bullet {
-  color: #2f5fe0;
-  margin-right: 10px;
-  font-size: 10px;
-}
-
-/* Scrolling ticker tape */
-.ticker {
-  overflow: hidden;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  padding: 8px 0;
-  margin-bottom: 24px;
-}
-.ticker-track {
-  display: inline-block;
-  white-space: nowrap;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: rgba(245, 240, 232, 0.35);
-  animation: ticker-scroll 18s linear infinite;
-}
-@keyframes ticker-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-
-/* Copyright */
-.copyright {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: rgba(245, 240, 232, 0.25);
-  margin: 0;
-}
-
-/* ═══════════════════ RIGHT — AUTH PANEL ══════════════════════════════════ */
+/* ── Right: auth panel ── */
 .auth-panel {
-  flex: 1;
-  background: #faf7f2;
+  background: var(--surface);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: 40px 28px;
+  border-left: 1px solid var(--border);
 }
 
-/* Card */
 .auth-card {
   width: 100%;
   max-width: 380px;
-  background: #f5f0e8;
-  border: 2px solid #1a1a1a;
-  border-radius: 2px;
-  padding: 40px 36px;
-  position: relative;
-  /* subtle drop-shadow for paper depth */
-  box-shadow: 4px 4px 0 #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
 
-/* Stamp label in corner */
-.card-stamp {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  color: var(--muted);
-  background: #e8e2d8;
-  border: 1px solid #c5bfb3;
-  display: inline-block;
-  padding: 3px 8px;
-  margin-bottom: 20px;
+/* ── Heading ── */
+.auth-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.card-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 30px;
-  font-weight: 700;
-  color: #0d0d0d;
-  margin: 0 0 8px 0;
+.auth-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(26px, 4vw, 34px);
+  color: var(--ink);
+  letter-spacing: -0.01em;
   line-height: 1.1;
-}
-
-.card-subtitle {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 0 0 24px 0;
-  line-height: 1.5;
-}
-
-.divider-rule {
-  height: 1px;
-  background: #1a1a1a;
-  margin-bottom: 24px;
-}
-
-/* Google button */
-.btn-google {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  width: 100%;
-  padding: 13px 20px;
-  background: #0d0d0d;
-  color: #f5f0e8;
-  border: 2px solid #0d0d0d;
-  border-radius: 2px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
-  box-shadow: 3px 3px 0 var(--muted);
-}
-.btn-google:hover {
-  background: #1a1a1a;
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--muted);
-}
-.btn-google:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--muted);
-}
-.google-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-/* OR divider */
-.or-divider {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 16px 0;
-}
-.or-line {
-  flex: 1;
-  height: 1px;
-  background: #c5bfb3;
-}
-.or-text {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: #9ca3af;
-}
-
-/* Guest button (cosmetic/disabled) */
-.btn-guest {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  padding: 12px 20px;
-  background: transparent;
-  color: #9ca3af;
-  border: 2px dashed #c5bfb3;
-  border-radius: 2px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
-  letter-spacing: 0.03em;
-  cursor: not-allowed;
-  margin-bottom: 20px;
-}
-.coming-soon {
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  background: #e8e2d8;
-  border: 1px solid #c5bfb3;
-  padding: 2px 6px;
-  color: var(--muted);
-}
-
-/* Legal note */
-.legal-note {
-  font-size: 11px;
-  color: #9ca3af;
-  text-align: center;
-  line-height: 1.6;
   margin: 0;
 }
-.legal-link {
-  color: #2f5fe0;
-  text-decoration: underline;
+
+.auth-sub {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
 }
 
-/* ── Responsive: stack on narrow screens ── */
-@media (max-width: 768px) {
-  .login-root { flex-direction: column; }
-  .brand-panel { flex: 0 0 35%; }
-  .wordmark { font-size: 48px; }
+/* ── Form ── */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.03em;
+}
+
+.field input {
+  height: 42px;
+  padding: 0 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--canvas-bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.field input:focus {
+  border-color: var(--ink);
+  background: var(--surface);
+}
+
+.field input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Error ── */
+.auth-error {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--danger);
+  background: var(--danger-tint);
+  border: 1px solid color-mix(in oklab, var(--danger), transparent 65%);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  margin: 0;
+}
+
+/* ── Submit button ── */
+.submit-btn {
+  height: 44px;
+  width: 100%;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--surface);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.submit-btn:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* ── Toggle row ── */
+.toggle-row {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
+}
+
+.toggle-btn {
+  border: none;
+  background: none;
+  color: var(--user-accent);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 2px;
+  text-decoration: underline;
+  transition: color 0.15s;
+}
+
+.toggle-btn:hover {
+  color: color-mix(in oklab, var(--user-accent), black 15%);
 }
 </style>

@@ -1,18 +1,42 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  PlusCircle,
+  LogOut,
+  Pencil,
+  Trash2,
+  Search,
+  MoreHorizontal,
+} from 'lucide-vue-next'
+import { getBoards, createBoard, deleteBoard } from '../api/client'
 import { useAuthStore } from '../stores/auth'
-import { getBoards, createBoard } from '../api/client'
 
 const router = useRouter()
-const auth   = useAuthStore()
+const boards = ref([])
+const auth = useAuthStore()
 
-const boards      = ref([])
-const loading     = ref(true)
-const creating    = ref(false)
+const loading = ref(false)
+const error = ref(null)
+const query = ref('')
+
+const showCreate = ref(false)
 const newBoardName = ref('')
-const showCreate  = ref(false)
-const error       = ref('')
+const creating = ref(false)
+
+// Accent names cycle for board cards
+const ACCENTS = ['purple', 'yellow', 'mint', 'blue', 'coral']
+function accentForId(id) {
+  return ACCENTS[id % ACCENTS.length]
+}
+
+const filtered = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  if (!q) return boards.value
+  return boards.value.filter((b) =>
+    b.name.toLowerCase().includes(q)
+  )
+})
 
 onMounted(async () => {
   await loadBoards()
@@ -24,8 +48,8 @@ async function loadBoards() {
   try {
     const res  = await getBoards()
     boards.value = (res.boards || []).sort(
-      (a, b) => new Date(b.last_visited_at || b.created_at || 0) -
-                new Date(a.last_visited_at || a.created_at || 0)
+      (a, b) => new Date(b.last_visited_at|| 0) -
+                new Date(a.last_visited_at|| 0)
     )
   } catch (e) {
     error.value = 'Could not load boards. Make sure you are connected.'
@@ -33,8 +57,8 @@ async function loadBoards() {
     loading.value = false
   }
 }
-
 function openBoard(board) {
+  console.log(board.board_id)
   router.push({ name: 'canvas', params: { id: board.board_id } })
 }
 
@@ -53,625 +77,537 @@ async function handleCreate() {
     creating.value = false
   }
 }
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+async function handleDelete(id) {
+  if (!confirm('Delete this board? This action cannot be undone.')) return
+  try {
+    await deleteBoard(id)
+    boards.value = boards.value.filter((b) => b.board_id !== id)
+  } catch {
+    error.value = 'Failed to delete board.'
+  }
 }
 
-// Deterministic pastel colour per board (cycles through retro palette)
-const CARD_COLORS = ['#f5f0e8', '#fefce8', '#f0f4ff', '#f0fdf4', '#fff1f2', '#fdf4ff']
-function cardColor(idx) { return CARD_COLORS[idx % CARD_COLORS.length] }
+function logout() {
+  auth.logout()
+  router.push({ name: 'login' })
+}
 </script>
 
 <template>
-  <div class="boards-root">
-    <!-- ── Top Navbar ──────────────────────────────────────────────────── -->
-    <header class="topbar">
-      <div class="topbar-left">
-        <span class="logo">
-          <span class="logo-sk">SK</span><span class="logo-retch">RETCH</span>
-        </span>
-        <!-- Cosmetic nav pills -->
-        <nav class="nav-pills" aria-label="Navigation (cosmetic)">
-          <button class="nav-pill active">Boards</button>
-          <button class="nav-pill">Templates</button>
-          <button class="nav-pill">Shared</button>
-          <button class="nav-pill">Archive</button>
-        </nav>
-      </div>
+  <div class="menu-page">
+    <!-- ── Topbar ── -->
+    <header class="menu-topbar">
+      <span class="brand">Skretch</span>
 
       <div class="topbar-right">
-        <!-- Cosmetic action buttons -->
-        <button class="btn-outline-sm">Upgrade</button>
-        <button class="btn-outline-sm">Settings</button>
-
-        <!-- User avatar -->
-        <div class="user-chip" v-if="auth.user">
-          <img
-            v-if="auth.user.avatar_url"
-            :src="auth.user.avatar_url"
-            :alt="auth.user.name"
-            class="avatar"
-            referrerpolicy="no-referrer"
-          />
-          <span v-else class="avatar avatar-fallback">
-            {{ auth.user.name?.[0]?.toUpperCase() || '?' }}
-          </span>
-          <span class="user-name">{{ auth.user.name }}</span>
-          <button class="logout-btn" @click="auth.logout(); $router.push('/')">Logout</button>
-        </div>
+        <button type="button" class="icon-btn" title="Log out" @click="logout">
+          <LogOut :size="16" />
+          <span>Log out</span>
+        </button>
       </div>
     </header>
 
-    <!-- ── Hero headline ─────────────────────────────────────────────── -->
-    <div class="page-hero">
-      <div class="hero-inner">
-        <div class="hero-label">&#x2016; YOUR WORKSPACE</div>
-        <h1 class="hero-title">
-          Your Boards<span class="hero-dot">.</span>
-        </h1>
-        <p class="hero-sub">
-          Pick up where you left off, or start something new.
-        </p>
+    <!-- ── Body ── -->
+    <main class="menu-body">
+      <!-- Page headline -->
+      <div class="page-headline">
+        <h1>Your Boards</h1>
+        <p class="page-sub">Pick up where you left off, or start something new.</p>
       </div>
-    </div>
-
-    <!-- ── Main content ───────────────────────────────────────────────── -->
-    <main class="main-content">
-
-      <!-- Error banner -->
-      <div v-if="error" class="error-banner">
-        <span>&#x26A0; {{ error }}</span>
-        <button @click="error = ''" class="error-dismiss">&#x2715;</button>
-      </div>
-
-      <!-- Section header -->
-      <div class="section-header">
-        <h2 class="section-title">Recent Boards</h2>
-        <div class="section-actions">
-          <!-- Cosmetic filters -->
-          <button class="filter-btn">All</button>
-          <button class="filter-btn">Mine</button>
-          <button class="filter-btn">Shared</button>
-          <!-- New board -->
-          <button class="btn-new" @click="showCreate = true">
-            <span class="plus-icon">+</span> New Board
-          </button>
+      <!-- Search + New row -->
+      <div class="toolbar-row">
+        <div class="search-box">
+          <Search :size="15" class="search-icon" />
+          <input
+            v-model="query"
+            type="search"
+            placeholder="Search boards…"
+            class="search-input"
+          />
         </div>
+        <button type="button" class="new-board-btn" @click="showCreate = true">
+          <PlusCircle :size="16" />
+          <span>New board</span>
+        </button>
       </div>
 
-      <!-- Loading skeleton -->
-      <div v-if="loading" class="grid">
-        <div v-for="i in 6" :key="i" class="card-skeleton" />
-      </div>
+      <!-- Loading / error states -->
+      <div v-if="loading" class="state-msg muted">Loading boards…</div>
+      <div v-else-if="error" class="state-msg error">{{ error }}</div>
 
       <!-- Empty state -->
-      <div v-else-if="!boards.length" class="empty-state">
-        <div class="empty-stamp">NO BOARDS YET</div>
-        <p class="empty-hint">Create your first board to get started.</p>
-        <button class="btn-new-lg" @click="showCreate = true">+ Create a Board</button>
+      <div v-else-if="!filtered.length && !query" class="empty-state">
+        <p>No boards yet. Create your first one above.</p>
+      </div>
+
+      <div v-else-if="!filtered.length && query" class="empty-state">
+        <p>No boards match "<strong>{{ query }}</strong>"</p>
       </div>
 
       <!-- Board grid -->
-      <div v-else class="grid">
-        <button
-          v-for="(board, idx) in boards"
-          :key="board.board_id"
-          class="board-card"
-          :style="{ background: cardColor(idx) }"
+      <div v-else class="board-grid">
+        <div
+          v-for="board in filtered"
+          :key="board.id"
+          class="board-card accent-surface"
+          :data-accent="accentForId(board.id)"
+          tabindex="0"
           @click="openBoard(board)"
-          :aria-label="`Open board: ${board.name}`"
-        >
-          <!-- Whiteboard surface -->
-          <div class="card-canvas">
-            <!-- Decorative dot grid on the "whiteboard" -->
-            <div class="card-grid-dots" aria-hidden="true" />
-            <!-- Simulated sticky note deco -->
-            <div class="deco-sticky s1" aria-hidden="true" />
-            <div class="deco-sticky s2" aria-hidden="true" />
-            <div class="deco-sticky s3" aria-hidden="true" />
+          <!-- Top spacer (the accent border-top from .accent-surface shows here) -->
+          <div class="card-body">
+            <p class="card-name">{{ board.name }}</p>
+            <p class="card-meta">
+            last visited at
+              {{ board.last_visited_at ? new Date(board.last_visited_at).toLocaleDateString() : 'new' }}
+            </p>
           </div>
-          <!-- Marker tray -->
-          <div class="card-tray">
-            <div class="tray-info">
-              <span class="card-name">{{ board.name }}</span>
-              <span class="card-date">{{ formatDate(board.last_visited_at || board.created_at) }}</span>
-            </div>
-            <div class="tray-markers" aria-hidden="true">
-              <span class="marker m-blue" />
-              <span class="marker m-red" />
-              <span class="marker m-green" />
-            </div>
-          </div>
-        </button>
-      </div>
-    </main>
 
-    <!-- ── Create board modal ─────────────────────────────────────────── -->
-    <Teleport to="body">
-      <div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false">
-        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <div class="modal-stamp">&#x25A0; NEW BOARD</div>
-          <h2 class="modal-title" id="modal-title">Name your board</h2>
-          <input
-            v-model="newBoardName"
-            class="modal-input"
-            placeholder="e.g. Competitor Analysis Q3"
-            @keydown.enter="handleCreate"
-            autofocus
-            maxlength="80"
-          />
-          <div class="modal-actions">
-            <button class="btn-cancel" @click="showCreate = false; newBoardName = ''">
-              Cancel
+          <div class="card-footer" @click.stop>
+            <button type="button" class="card-action" title="Rename board">
+              <Pencil :size="14" />
             </button>
-            <button class="btn-create" :disabled="creating" @click="handleCreate">
-              <span v-if="creating">Creating…</span>
-              <span v-else>Create Board</span>
+            <button
+              type="button"
+              class="node-remove"
+              title="Delete board"
+              @click="handleDelete(board.board_id)"
+            >
+              <Trash2 :size="14" />
             </button>
           </div>
         </div>
-      </div>
-    </Teleport>
 
-    <!-- ── FAB new board (mobile / quick-access) ──────────────────────── -->
-    <button class="fab" @click="showCreate = true" aria-label="Create new board">+</button>
+        <!-- Create new card (ghost) -->
+        <button type="button" class="board-card ghost" @click="showCreate = true">
+          <PlusCircle :size="24" />
+          <span>New board</span>
+        </button>
+      </div>
+    </main>
   </div>
+
+  <!-- ── New Board Modal ── -->
+  <Teleport to="body">
+    <div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h2 id="modal-title" class="modal-title">New board</h2>
+        <p class="modal-sub">Give your board a name to get started.</p>
+
+        <input
+          v-model="newBoardName"
+          class="modal-input"
+          type="text"
+          placeholder="e.g. Product Roadmap"
+          maxlength="80"
+          autofocus
+          @keydown.enter="handleCreate"
+          @keydown.esc="showCreate = false"
+        />
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="modal-btn cancel"
+            @click="showCreate = false"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="modal-btn create"
+            :disabled="creating"
+            @click="handleCreate"
+          >
+            {{ creating ? 'Creating…' : 'Create board' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;600;700&display=swap');
-
-/* ── Root ──────────────────────────────────────────────────────────────── */
-.boards-root {
-  min-height: 100vh;
-  background: #faf7f2;
-  font-family: 'IBM Plex Mono', monospace;
-  color: var(--ink);
+/* ── Layout ── */
+.menu-page {
+  min-height: 100dvh;
+  background: var(--canvas-bg);
   display: flex;
   flex-direction: column;
 }
 
-/* ── Topbar ────────────────────────────────────────────────────────────── */
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
+/* ── Topbar ── */
+.menu-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   height: 56px;
-  background: var(--canvas-bg);
-  border-bottom: 2px solid var(--muted);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 32px;
+  padding: 0 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
 }
-.topbar-left { display: flex; align-items: center; gap: 24px; }
-.topbar-right { display: flex; align-items: center; gap: 12px; }
 
-.logo {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  user-select: none;
-}
-.logo-sk    { color: var(--user-accent); }
-.logo-retch { color: var(--ink); }
-
-/* Cosmetic nav pills */
-.nav-pills { display: flex; gap: 4px; }
-.nav-pill {
-  padding: 4px 12px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
+.brand {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 18px;
   letter-spacing: 0.04em;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.nav-pill:hover, .nav-pill.active {
-  background: var(--muted);
-  color: var(--canvas-bg);
-  border-color: var(--muted);
-}
-
-.btn-outline-sm {
-  padding: 5px 12px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.btn-outline-sm:hover { border-color: var(--muted); color: var(--ink); }
-
-.user-name {
-  font-size: 12px;
-  font-weight: 600;
   color: var(--ink);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.logout-btn {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: var(--muted);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-decoration: underline;
-  padding: 0;
-}
-.logout-btn:hover { color:var(--danger) }
-
-/* ── Hero ──────────────────────────────────────────────────────────────── */
-.page-hero {
-  border-bottom: 1px solid var(--border-strong);
-  background: var(--canvas-bg);
-  padding: 40px 0 32px;
-}
-.hero-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 32px;
-}
-.hero-label {
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  color: #9ca3af;
-  margin-bottom: 8px;
-}
-.hero-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 48px;
-  font-weight: 700;
-  margin: 0 0 8px;
-  line-height: 1.05;
-}
-.hero-dot { color: rgb(216 180 254); }
-.hero-sub {
-  font-size: 14px;
-  color: var(--muted);
-  margin: 0;
 }
 
-/* ── Main content ──────────────────────────────────────────────────────── */
-.main-content {
-  flex: 1;
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 32px 32px 80px;
-}
-
-/* Error banner */
-.error-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #fff1f2;
-  border: 1px solid var(--danger);
-  border-radius: 2px;
-  padding: 10px 14px;
-  font-size: 13px;
-  color: var(--danger);
-  margin-bottom: 24px;
-}
-.error-dismiss {
-  background: transparent;
-  border: none;
-  color: var(--danger);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-/* Section header */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.section-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0;
-}
-.section-actions {
+.topbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.filter-btn {
-  padding: 5px 12px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.filter-btn:hover { background: rgb(125 211 252); color: var(--ink); }
-
-.btn-new {
+.icon-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 16px;
-  background: var(--ink);
-  color: var(--canvas-bg);
-  border: 2px solid var(--ink);
-  border-radius: 2px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  gap: 7px;
+  padding: 0 12px;
+  height: 34px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13px;
   cursor: pointer;
-  box-shadow: 2px 2px 0 var(--muted);
-  transition: transform 0.1s, box-shadow 0.1s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.btn-new:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--muted); }
-.btn-new:active { transform: translate(1px,1px); box-shadow: 0 0 0 var(--muted); }
-.plus-icon { font-size: 16px; line-height: 1; }
-
-/* ── Board card grid ───────────────────────────────────────────────────── */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+.icon-btn:hover {
+  background: var(--canvas-bg);
+  color: var(--ink);
+  border-color: var(--border);
 }
 
-.board-card {
-  all: unset;
+/* ── Body ── */
+.menu-body {
+  flex: 1;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 48px 28px 64px;
   display: flex;
   flex-direction: column;
-  border: 2px solid var(--border-strong);
-  border-radius: 2px;
+  gap: 32px;
+}
+
+/* ── Headline ── */
+.page-headline h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(28px, 4vw, 42px);
+  color: var(--ink);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+
+.page-sub {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ── Toolbar row ── */
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 12px;
+  height: 38px;
+  transition: border-color 0.15s;
+}
+.search-box:focus-within {
+  border-color: var(--ink);
+}
+
+.search-icon {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--ink);
+  outline: none;
+}
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+.new-board-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--ink);
+  color: var(--surface);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.new-board-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── States ── */
+.state-msg {
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+.state-msg.muted {
+  color: var(--muted);
+}
+.state-msg.error {
+  color: var(--danger);
+}
+
+.empty-state {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+/* ── Grid ── */
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 18px;
+}
+
+/* ── Board card ── */
+.board-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 3px 3px 0 var(--muted);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  background: var(--canvas-bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 130px;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
+
+/* accent-surface top border handled in style.css */
+
 .board-card:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 5px 5px 0 var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
-.board-card:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--muted); }
+
 .board-card:focus-visible {
   outline: 2px solid var(--user-accent);
   outline-offset: 2px;
 }
 
-/* Card whiteboard area */
-.card-canvas {
-  position: relative;
-  height: 140px;
-  overflow: hidden;
-  border-bottom: 2px solid var(--muted);
+.card-body {
+  flex: 1;
+  padding: 16px 16px 10px;
 }
-.card-grid-dots {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle, var(--muted) 1px, transparent 1px);
-  background-size: 18px 18px;
-}
-/* Decorative sticky notes */
-.deco-sticky {
-  position: absolute;
-  width: 42px;
-  height: 42px;
-  border: 1.5px solid rgba(26,26,26,0.3);
-  border-radius: 2px;
-  box-shadow: 2px 2px 4px rgba(0,0,0,0.08);
-  filter:brightness(1.2);
-}
-.s1 { background: rgb(110 231 183); top: 20px; left: 24px; transform: rotate(-4deg); }
-.s2 { background: rgb(252 211 77); top: 30px; left: 80px; transform: rotate(2deg); }
-.s3 { background: rgb(253 164 175); top: 18px; left: 140px; transform: rotate(-1deg); }
 
-/* Marker tray (card footer) */
-.card-tray {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: inherit;
-}
-.tray-info { display: flex; flex-direction: column; gap: 2px; }
 .card-name {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 14px;
+  font-family: var(--font-display);
   font-weight: 700;
+  font-size: 14px;
   color: var(--ink);
+  margin: 0 0 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 180px;
 }
-.card-date { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
 
-.tray-markers { display: flex; gap: 4px; align-items: center; }
-.marker {
-  display: block;
-  width: 6px;
-  height: 28px;
-  border-radius: 3px;
-  border: 1px solid rgba(0,0,0,0.15);
-}
-.m-blue  { background: rgb(125 211 252); }
-.m-red   { background: rgb(253 164 175); }
-.m-green { background: rgb(110 231 183); }
-
-/* Loading skeletons */
-.card-skeleton {
-  height: 190px;
-  background: var(--shadow-md);
-  border: 2px solid var(--border);
-  border-radius: 2px;
-  animation: skeleton-pulse 1.4s ease-in-out infinite;
-}
-@keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-
-/* Empty state */
-.empty-state {
-  text-align: center;
-  padding: 80px 0;
-}
-.empty-stamp {
+.card-meta {
+  font-family: var(--font-mono);
   font-size: 11px;
-  letter-spacing: 0.2em;
-  color: #9ca3af;
-  border: 1px dashed var(--border);
-  display: inline-block;
-  padding: 6px 16px;
-  margin-bottom: 16px;
+  color: var(--muted);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
-.empty-hint { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
-.btn-new-lg {
-  padding: 12px 28px;
-  background: var(--ink);
-  color: var(--canvas-bg);
-  border: 2px solid var(--ink);
-  border-radius: 2px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 3px 3px 0 var(--muted);
-}
-.btn-new-lg:hover { box-shadow: 5px 5px 0 var(--muted); }
 
-/* ── Create modal ──────────────────────────────────────────────────────── */
+.card-footer {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.board-card:hover .card-footer {
+  opacity: 1;
+}
+
+.card-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.card-action:hover {
+  background: var(--canvas-bg);
+  color: var(--ink);
+}
+.card-action.danger:hover {
+  color: var(--danger);
+  background: var(--danger-tint);
+}
+
+/* Ghost card */
+.board-card.ghost {
+  border-style: dashed;
+  background: transparent;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 500;
+  min-height: 130px;
+}
+.board-card.ghost:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+  box-shadow: none;
+  transform: none;
+}
+
+/* ── Modal ── */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(13,13,13,0.6);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(2px);
 }
-.modal-box {
-  background: var(--canvas-bg);
-  border: 2px solid var(--muted);
-  border-radius: 2px;
-  padding: 36px 32px;
-  width: 400px;
-  max-width: 90vw;
-  box-shadow: 6px 6px 0 var(--muted);
-}
-.modal-stamp {
-  font-size: 9px;
-  letter-spacing: 0.15em;
-  color: var(--muted);
-  background: #e8e2d8;
+
+.modal-card {
+  background: var(--surface);
   border: 1px solid var(--border);
-  display: inline-block;
-  padding: 3px 8px;
-  margin-bottom: 16px;
+  border-radius: calc(var(--radius) * 1.5);
+  box-shadow: var(--shadow-md);
+  padding: 28px 28px 24px;
+  width: min(420px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
+
 .modal-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0 0 20px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
+
+.modal-sub {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: 0;
+}
+
 .modal-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 2px solid var(--muted);
-  border-radius: 2px;
-  background: #faf7f2;
-  font-family: 'IBM Plex Mono', monospace;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--canvas-bg);
+  font-family: var(--font-body);
   font-size: 14px;
   color: var(--ink);
   outline: none;
   box-sizing: border-box;
-  transition: box-shadow 0.15s;
+  transition: border-color 0.15s;
 }
-.modal-input:focus { box-shadow: 3px 3px 0 var(--user-accent); border-color: var(--border-strong); }
+.modal-input::placeholder {
+  color: var(--muted);
+}
+.modal-input:focus {
+  border-color: var(--ink);
+}
+
 .modal-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
-  margin-top: 20px;
+  margin-top: 4px;
 }
-.btn-cancel {
-  padding: 9px 18px;
+
+.modal-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+}
+.modal-btn.cancel {
   background: transparent;
-  border: 2px solid var(--border);
-  border-radius: 2px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
+  border: 1px solid var(--border);
   color: var(--muted);
-  cursor: pointer;
 }
-.btn-cancel:hover { border-color: var(--muted); color: var(--ink); }
-.btn-create {
-  padding: 9px 20px;
+.modal-btn.cancel:hover {
+  background: var(--canvas-bg);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.modal-btn.create {
   background: var(--ink);
-  color: var(--canvas-bg);
-  border: 2px solid var(--ink);
-  border-radius: 2px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 2px 2px 0 var(--muted);
-  transition: opacity 0.15s;
+  border: none;
+  color: var(--surface);
 }
-.btn-create:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-create:not(:disabled):hover { box-shadow: 3px 3px 0 var(--muted); }
-
-/* ── FAB ──────────────────────────────────────────────────────────────── */
-.fab {
-  position: fixed;
-  bottom: 32px;
-  right: 32px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--canvas-bg);
-  border: 2px solid var(--ink);
-  font-size: 28px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 3px 3px 0 var(--muted);
-  transition: transform 0.15s, box-shadow 0.15s;
-  z-index: 50;
+.modal-btn.create:hover:not(:disabled) {
+  opacity: 0.85;
 }
-.fab:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--muted); }
-
-/* ── Responsive ─────────────────────────────────────────────────────── */
-@media (max-width: 900px) {
-  .grid { grid-template-columns: repeat(2, 1fr); }
-  .nav-pills { display: none; }
-}
-@media (max-width: 600px) {
-  .grid { grid-template-columns: 1fr; }
-  .topbar { padding: 0 16px; }
-  .main-content { padding: 24px 16px 80px; }
+.modal-btn.create:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

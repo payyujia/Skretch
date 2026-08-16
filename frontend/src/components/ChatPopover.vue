@@ -83,12 +83,20 @@ defineExpose({ focusWithContext })
 <template>
   <transition name="pop">
     <aside v-if="tool.chatOpen" class="chat-popover">
+
+      <!-- ── Header: agent-accent tinted strip ── -->
       <header class="chat-header">
-        <span class="title">Agent</span>
-        <span class="status" :class="{ connected }">{{ connected ? 'online' : 'connecting…' }}</span>
-        <button type="button" class="close-btn" @click="tool.chatOpen = false"><X :size="16" /></button>
+        <div class="header-left">
+          <span class="header-dot" :class="{ connected }" />
+          <span class="title">Agent</span>
+        </div>
+        <span class="status-label">{{ connected ? 'online' : 'connecting…' }}</span>
+        <button type="button" class="close-btn" @click="tool.chatOpen = false" title="Close">
+          <X :size="14" />
+        </button>
       </header>
 
+      <!-- ── Message list ── -->
       <div class="chat-messages" ref="listRef">
         <p v-if="!messages.length" class="empty-hint">
           Ask the agent to brainstorm, research, or tidy up — it places ideas straight on the board.
@@ -99,6 +107,7 @@ defineExpose({ focusWithContext })
         </div>
       </div>
 
+      <!-- ── Input area ── -->
       <div class="chat-input">
         <!-- Context chip (selected node) -->
         <div v-if="contextNode" class="context-chip">
@@ -139,7 +148,7 @@ defineExpose({ focusWithContext })
             title="Attach project document (PDF, DOCX, TXT)"
             @click="openFilePicker"
           >
-            <Paperclip :size="16" />
+            <Paperclip :size="15" />
           </button>
 
           <textarea
@@ -159,6 +168,7 @@ defineExpose({ focusWithContext })
 </template>
 
 <style scoped>
+/* ── Shell ── */
 .chat-popover {
   position: absolute;
   bottom: 84px;
@@ -169,44 +179,56 @@ defineExpose({ focusWithContext })
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow-md);
   overflow: hidden;
   z-index: 25;
 }
 
+/* ── Header: tinted agent strip ── */
 .chat-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 10px 14px;
+  background: var(--agent-accent-tint);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+}
+
+.header-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  transition: background 0.3s ease;
+}
+.header-dot.connected {
+  background: var(--success);
+  box-shadow: 0 0 0 2px var(--success-tint);
 }
 
 .title {
   font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--agent-accent);
+  letter-spacing: 0.04em;
 }
 
-.status {
+.status-label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
-}
-
-.status::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--muted);
-  margin-right: 5px;
-}
-
-.status.connected::before {
-  background: #2fae60;
+  letter-spacing: 0.04em;
 }
 
 .close-btn {
@@ -215,8 +237,21 @@ defineExpose({ focusWithContext })
   background: transparent;
   color: var(--muted);
   display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.close-btn:hover {
+  background: var(--border);
+  color: var(--ink);
 }
 
+/* ── Messages ── */
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -228,14 +263,16 @@ defineExpose({ focusWithContext })
 
 .empty-hint {
   color: var(--muted);
+  font-family: var(--font-body);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .message {
   max-width: 88%;
   padding: 9px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
   font-size: 13.5px;
   line-height: 1.45;
   white-space: pre-wrap;
@@ -253,6 +290,7 @@ defineExpose({ focusWithContext })
   background: var(--agent-accent-tint);
   color: var(--ink);
   border-bottom-left-radius: 3px;
+  border: 1px solid var(--border);
 }
 
 .message.system {
@@ -263,12 +301,14 @@ defineExpose({ focusWithContext })
   font-size: 12px;
 }
 
+/* ── Input area ── */
 .chat-input {
   border-top: 1px solid var(--border);
   padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .context-chip {
@@ -277,6 +317,7 @@ defineExpose({ focusWithContext })
   gap: 6px;
   background: var(--user-accent-tint);
   color: var(--user-accent);
+  font-family: var(--font-body);
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 999px;
@@ -296,6 +337,7 @@ defineExpose({ focusWithContext })
   font-size: 14px;
   line-height: 1;
   padding: 0;
+  cursor: pointer;
 }
 
 /* Doc chips row */
@@ -313,6 +355,7 @@ defineExpose({ focusWithContext })
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 3px 8px 3px 6px;
+  font-family: var(--font-body);
   font-size: 11.5px;
   color: var(--ink);
   max-width: 160px;
@@ -377,7 +420,7 @@ defineExpose({ focusWithContext })
   border-radius: var(--radius);
   cursor: pointer;
   flex-shrink: 0;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .attach-btn:hover {
@@ -394,21 +437,33 @@ textarea {
   padding: 9px 11px;
   font-size: 13.5px;
   font-family: var(--font-body);
+  background: var(--surface);
+  color: var(--ink);
   outline: none;
+  transition: border-color 0.15s;
 }
 
 textarea:focus {
-  border-color: var(--user-accent);
+  border-color: var(--agent-accent);
 }
 
 .send-btn {
   border: none;
   background: var(--ink);
-  color: #fff;
+  color: var(--surface);
   border-radius: var(--radius);
   padding: 9px 14px;
+  font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.send-btn:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
 }
 
 .send-btn:disabled {
@@ -417,6 +472,7 @@ textarea:focus {
   cursor: not-allowed;
 }
 
+/* ── Transition ── */
 .pop-enter-active,
 .pop-leave-active {
   transition: opacity 0.15s ease, transform 0.15s ease;

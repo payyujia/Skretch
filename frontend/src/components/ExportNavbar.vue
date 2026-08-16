@@ -109,7 +109,7 @@ const presenceUsers = computed(() => Object.values(board.presence))
         <div
           v-for="u in presenceUsers.slice(0, 5)"
           :key="u.userId"
-          class="presence-avatar"
+          class="presence-avatar avatar"
           :style="{ background: u.color, borderColor: u.color }"
           :title="u.name || u.userId"
         >
@@ -224,12 +224,12 @@ const presenceUsers = computed(() => Object.values(board.presence))
   top: 0;
   left: 0;
   right: 0;
-  height: 48px;
+  height: 56px;
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
+  padding: 0 28px;
   background: var(--surface);
   border-bottom: 1.5px solid var(--border);
   box-shadow: var(--shadow-sm);
@@ -251,17 +251,12 @@ const presenceUsers = computed(() => Object.values(board.presence))
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 1.5px solid var(--border);
+  border: transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--ink);
   transition: background 0.15s, border-color 0.15s;
   flex-shrink: 0;
-}
-.back-btn:hover {
-  background: var(--user-accent-tint);
-  border-color: var(--user-accent);
-  color: var(--user-accent);
 }
 
 .board-name {
@@ -290,16 +285,9 @@ const presenceUsers = computed(() => Object.values(board.presence))
 }
 
 .presence-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff;
   overflow: hidden;
   margin-left: -6px;
   cursor: default;
@@ -307,7 +295,6 @@ const presenceUsers = computed(() => Object.values(board.presence))
   flex-shrink: 0;
 }
 .presence-avatar:first-child { margin-left: 0; }
-.presence-avatar:hover { transform: translateY(-2px); z-index: 1; }
 .presence-avatar img {
   width: 100%;
   height: 100%;
@@ -360,7 +347,6 @@ const presenceUsers = computed(() => Object.values(board.presence))
 .docs-btn:hover {
   background: #1e4bc4;
   border-color: #1e4bc4;
-  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(47, 95, 224, 0.3);
 }
 

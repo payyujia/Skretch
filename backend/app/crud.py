@@ -296,6 +296,18 @@ def add_collaborator(db: Session, board_id: int, user_id: str) -> None:
     db.commit()
 
 
+def delete_board(db: Session, board_id: int) -> bool:
+    """Delete a board and all its nodes. Returns False if not found."""
+    board = get_board_entity(db, board_id)
+    if not board:
+        return False
+    db.query(models.Node).filter_by(board_id=board_id).delete(synchronize_session=False)
+    db.query(models.DocumentChunk).filter_by(board_id=board_id).delete(synchronize_session=False)
+    db.delete(board)
+    db.commit()
+    return True
+
+
 def touch_board(db: Session, board_id: int) -> None:
     """Update last_visited_at for a board."""
     from datetime import datetime, timezone

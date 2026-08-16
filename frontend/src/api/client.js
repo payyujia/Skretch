@@ -50,6 +50,8 @@ export const getBoards = () => request('/api/boards')
 export const createBoard = (name = 'Untitled Board') =>
   request('/api/boards', { method: 'POST', body: JSON.stringify({ name }) })
 
+export const deleteBoard = (boardId) =>
+  request(`/api/boards/${boardId}`, { method: 'DELETE' })
 // ── Document / RAG endpoints ──────────────────────────────────────────────────
 
 /**

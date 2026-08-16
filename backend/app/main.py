@@ -123,6 +123,21 @@ def create_board(
     return board
 
 
+@app.delete("/api/boards/{board_id}", status_code=204)
+def delete_board(
+    board_id: int,
+    current_user=Depends(auth_module.require_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a board (owner only). Cascades all nodes and documents."""
+    board = crud.get_board_entity(db, board_id)
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    if board.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the board owner can delete this board")
+    crud.delete_board(db, board_id)
+
+
 @app.post("/api/boards/{board_id}/collaborators")
 def add_collaborator(
     board_id: int,
