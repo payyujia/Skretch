@@ -115,6 +115,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onDocClick))
 
 .tool-btn:hover:not(:disabled) {
   background: var(--canvas-bg);
+  color:var(--ink);
 }
 
 .tool-btn.active {

@@ -422,6 +422,7 @@ onUnmounted(() => {
 .cursor-overlay {
   position: absolute;
   inset: 0;
+  transform: translateY(-48px);/* w/o this the cursor is too low due to svg padding ie. not at 0,0 of element*/
   pointer-events: none;
   overflow: hidden;
   z-index: 20;
@@ -440,7 +441,7 @@ onUnmounted(() => {
 
 .cursor-svg {
   display: block;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+  filter: var(--shadow-sm);
   flex-shrink: 0;
 }
 
@@ -451,9 +452,9 @@ onUnmounted(() => {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  color: #fff;
+  color:var(--surface);
   white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  box-shadow:var(--shadow-sm);
   letter-spacing: 0.01em;
 }
 </style>
