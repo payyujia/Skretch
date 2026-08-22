@@ -24,7 +24,7 @@ const content = computed({
 
 const noteColor = computed(() => {
   const chosen = props.data.data?.color
-  return colorOptions.find((option) => option.name === chosen)?.hex ?? colorOptions[0].hex
+  return colorOptions.some((option) => option.name === chosen) ? chosen : colorOptions[0].name
 })
 
 const currentColorName = computed(() => props.data.data?.color ?? colorOptions[0].name)
@@ -97,7 +97,7 @@ function onDoubleClick() {
   <div
     class="board-node sticky-note"
     :class="{ agent: isAgent, selected: isSelected, editing: isEditing, thinking: data.thinking, 'just-placed': data.justPlaced }"
-    :style="{ backgroundColor:`color-mix(in oklab, ${noteColor}, white 50%)`,transform: `rotate(${rotation}deg)`, borderTopColor: noteColor}"
+    :style="{ '--note-color': `var(--accent-${noteColor})`, '--note-color-light': `var(--accent-${noteColor}-light)`, '--note-color-dark': `var(--accent-${noteColor}-dark)`, transform: `rotate(${rotation}deg)` }"
     @dblclick.stop="onDoubleClick"
   >
     <span v-if="isAgent" class="node-badge">AI</span>
@@ -189,6 +189,9 @@ function onDoubleClick() {
 .sticky-note {
   position: relative;
   width: 15rem;
+  background: var(--note-color-light);
+  border-top-color: var(--note-color);
+  box-shadow: 0 4px 10px rgba(28, 31, 38, 0.14);
   padding: var(--radius);
   border-top-width: 4px;
   display: flex;
@@ -198,6 +201,8 @@ function onDoubleClick() {
   transition: filter 0.2s ease, box-shadow 0.2s ease;
 }
 .sticky-note:hover { 
+  background: var(--note-color-light);
+  box-shadow: 0 7px 16px rgba(28, 31, 38, 0.2);
   filter:brightness(1);
 }
 
@@ -222,9 +227,9 @@ function onDoubleClick() {
 }
 
 .node-text {
+  color: color-mix(in srgb, var(--note-color-dark) 40%, black);
   margin: 0;
   min-height: 4rem;
-  color: var(--ink);
   white-space: pre-wrap;
   word-break: break-word;
 }

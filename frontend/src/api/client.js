@@ -47,8 +47,8 @@ export const deleteNode = (id) =>
 
 export const getBoards = () => request('/api/boards')
 
-export const createBoard = (name = 'Untitled Board') =>
-  request('/api/boards', { method: 'POST', body: JSON.stringify({ name }) })
+export const createBoard = (name = 'Untitled Board', template = 'blank') =>
+  request('/api/boards', { method: 'POST', body: JSON.stringify({ name, template }) })
 
 export const deleteBoard = (boardId) =>
   request(`/api/boards/${boardId}`, { method: 'DELETE' })

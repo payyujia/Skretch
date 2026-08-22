@@ -138,11 +138,34 @@ export const useBoardStore = defineStore('board', {
       if (node.serverId) await api.updateNode(node.serverId, { content })
     },
 
-    async updateNodeData(id, patch) {
+    /**
+     * Local-only data patch — no network call. Use this for high-frequency
+     * updates (drag/resize ticks) where you only want the UI to reflect the
+     * change immediately; pair with `commitNodeData` once the gesture ends.
+     */
+    setNodeDataLocal(id, patch) {
       const node = this.nodes.find((n) => n.id === id)
       if (!node) return
       node.data = { ...node.data, ...patch }
-      if (node.serverId) await api.updateNode(node.serverId, { data: node.data })
+    },
+
+    /**
+     * Patches node data locally AND persists it to the backend. Use this for
+     * one-shot data changes (color cycling, gesture-end) — never call this
+     * on every tick of a drag/resize, or you'll fire an HTTP request per
+     * frame. For continuous updates, call `setNodeDataLocal` during the
+     * gesture and this once at the end.
+     */
+    async commitNodeData(id, patch) {
+      this.setNodeDataLocal(id, patch)
+      const node = this.nodes.find((n) => n.id === id)
+      if (node?.serverId) await api.updateNode(node.serverId, { data: node.data })
+    },
+
+    // Retained for existing one-shot call sites (e.g. color cycling). Do not
+    // call this from a drag/resize/pointermove handler — see setNodeDataLocal.
+    async updateNodeData(id, patch) {
+      await this.commitNodeData(id, patch)
     },
 
     async reparentNode(id, frameId) {
@@ -328,4 +351,4 @@ export const useBoardStore = defineStore('board', {
       }
     },
   },
-})
+})  

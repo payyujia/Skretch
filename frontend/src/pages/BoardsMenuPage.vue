@@ -22,7 +22,15 @@ const query = ref('')
 
 const showCreate = ref(false)
 const newBoardName = ref('')
+const selectedTemplate = ref('blank')
 const creating = ref(false)
+
+const BOARD_TEMPLATES = [
+  { key: 'blank', label: 'Blank canvas', description: 'Fresh workspace' },
+  { key: 'kanban', label: 'Kanban board', description: 'Backlog, In progress, and Done' },
+  { key: 'okr', label: 'OKR planning', description: 'Objective and measurable key results' },
+  { key: 'retrospective', label: 'Retrospective', description: 'Team feedback on past project phases' },
+]
 
 // Accent names cycle for board cards
 const ACCENTS = ['purple', 'yellow', 'mint', 'blue', 'coral']
@@ -66,10 +74,11 @@ async function handleCreate() {
   const name = newBoardName.value.trim() || 'Untitled Board'
   creating.value = true
   try {
-    const board = await createBoard(name)
+    const board = await createBoard(name, selectedTemplate.value)
     boards.value.unshift(board)
     showCreate.value  = false
     newBoardName.value = ''
+    selectedTemplate.value = 'blank'
     openBoard(board)
   } catch {
     error.value = 'Failed to create board.'
@@ -202,6 +211,22 @@ function logout() {
           @keydown.enter="handleCreate"
           @keydown.esc="showCreate = false"
         />
+
+        <div class="template-picker">
+          <span class="template-label">Start from a template</span>
+          <label
+            v-for="template in BOARD_TEMPLATES"
+            :key="template.key"
+            class="template-option"
+            :class="{ selected: selectedTemplate === template.key }"
+          >
+            <input v-model="selectedTemplate" type="radio" name="board-template" :value="template.key" />
+            <span>
+              <strong>{{ template.label }}</strong>
+              <small>{{ template.description }}</small>
+            </span>
+          </label>
+        </div>
 
         <div class="modal-actions">
           <button
@@ -567,6 +592,57 @@ function logout() {
 }
 .modal-input:focus {
   border-color: var(--ink);
+}
+
+.template-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.template-label {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.template-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.template-option.selected {
+  border-color: var(--ink);
+  background: var(--canvas-bg);
+}
+
+.template-option input {
+  margin: 2px 0 0;
+  accent-color: var(--ink);
+}
+
+.template-option span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.template-option strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.template-option small {
+  color: var(--muted);
+  font-size: 11.5px;
 }
 
 .modal-actions {

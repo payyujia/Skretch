@@ -259,10 +259,31 @@ def create_board(
     db: Session,
     name: str,
     owner_id: str,
+    template_nodes: list[dict] | None = None,
 ) -> models.Board:
-    """Create a new board and return it."""
+    """Create a board and its optional starter nodes in one transaction."""
+    owner = get_user(db, owner_id)
     board = models.Board(name=name, owner_id=owner_id)
     db.add(board)
+    db.flush()
+    created_nodes: list[models.Node] = []
+    for node_data in template_nodes or []:
+        node = models.Node(
+            board_id=board.board_id,
+            type=node_data["type"],
+            content=node_data.get("content", ""),
+            x=node_data.get("x", 0),
+            y=node_data.get("y", 0),
+            data=node_data.get("data", {}),
+            created_by=owner.name,
+            parent_id=None,
+        )
+        db.add(node)
+        created_nodes.append(node)
+        db.flush()
+        parent_index = node_data.get("parent_index")
+        if parent_index is not None:
+            node.parent_id = created_nodes[parent_index].id
     db.commit()
     db.refresh(board)
     return board

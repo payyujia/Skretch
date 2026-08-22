@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Optional, Any, Literal
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
@@ -64,6 +64,7 @@ class UserOut(BaseModel):
 
 class BoardCreate(BaseModel):
     name: str = "Untitled Board"
+    template: Literal["blank", "kanban", "okr", "retrospective"] = "blank"
 
 
 class BoardDetail(BaseModel):

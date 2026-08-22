@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from . import crud, schemas, agent, ai_gateway, auth as auth_module, export as export_module
+from . import crud, schemas, agent, ai_gateway, auth as auth_module, export as export_module, templates
 from .database import engine, Base, get_db
 
 Base.metadata.create_all(bind=engine)
@@ -134,7 +134,12 @@ def create_board(
     db: Session = Depends(get_db),
 ):
     """Create a new board owned by the current user."""
-    board = crud.create_board(db, name=payload.name, owner_id=current_user.id)
+    board = crud.create_board(
+        db,
+        name=payload.name,
+        owner_id=current_user.id,
+        template_nodes=templates.get_template_nodes(payload.template),
+    )
     return board
 
 

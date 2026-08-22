@@ -1,6 +1,6 @@
 :root {
   --canvas-bg: #F7FAFB;
-  --canvas-dot: #DBE2EA;
+  --canvas-dot: #CBD5E1;
   --ink: #1c1f26;
   --muted: #6b7280;
   --surface: #ffffff;
@@ -30,6 +30,11 @@
   --accent-mint-surface: rgb(182 243 219);
   --accent-blue-surface: rgb(190 233 253);
   --accent-coral-surface: rgb(254 210 215);
+  --accent-purple-light: var(--accent-purple-surface);
+  --accent-yellow-light: var(--accent-yellow-surface);
+  --accent-mint-light: var(--accent-mint-surface);
+  --accent-blue-light: var(--accent-blue-surface);
+  --accent-coral-light: var(--accent-coral-surface);
   --accent-purple-dark: rgb(66, 4, 137);
   --accent-yellow-dark: rgb(152, 117, 0);
   --accent-mint-dark: #037152;

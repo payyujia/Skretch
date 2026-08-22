@@ -41,7 +41,6 @@ function nextColor() {
   const index = colorOptions.findIndex((c) => c.name === colorName.value)
   const next = colorOptions[(index + 1) % colorOptions.length]
   board.checkpoint()
-  console.log(next)
   board.updateNodeData(props.id, { color: next.name })
 }
 
@@ -70,6 +69,11 @@ function onKeydown(event) {
 // escape hatch — Vue Flow starts node dragging from a pointerdown listener
 // registered in the capture phase, so a bubble-phase @pointerdown.stop here
 // is too late to block it; nodrag is what actually suppresses it.
+//
+// Perf note: while the handle is being dragged, `onMove` fires on every
+// pointermove — potentially 60+ times/sec. It must only touch local state
+// (setNodeDataLocal), never hit the network. The single persisted write
+// happens once in `onUp`, after the gesture ends.
 function onResizeStart(event) {
   event.stopPropagation()
   resizing.value = true
@@ -81,12 +85,13 @@ function onResizeStart(event) {
   function onMove(e) {
     const w = Math.max(160, startW + (e.clientX - startX))
     const h = Math.max(120, startH + (e.clientY - startY))
-    board.updateNodeData(props.id, { width: w, height: h })
+    board.setNodeDataLocal(props.id, { width: w, height: h })
   }
-  function onUp() {
+  async function onUp() {
     resizing.value = false
     window.removeEventListener('pointermove', onMove)
     window.removeEventListener('pointerup', onUp)
+    await board.commitNodeData(props.id, { width: width.value, height: height.value })
     emit('resizeEnd')
   }
   window.addEventListener('pointermove', onMove)

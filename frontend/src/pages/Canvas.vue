@@ -50,17 +50,65 @@ const FRAME_Z_INDEX = 0
 const NODE_Z_INDEX = 1
 const DEFAULT_NODE_SIZE = { width: 240, height: 120 }
 
-const flowNodes = computed(() =>
-  board.nodes.map((n) => ({
-    id: n.id,
-    type: n.type,
-    position: { x: n.x, y: n.y },
-    zIndex: n.type === 'frame' ? FRAME_Z_INDEX : NODE_Z_INDEX,
-    data: n,
-    draggable: !n.thinking && tool.active === 'select',
-    connectable: Boolean(n.serverId),
-  }))
-)
+// ── flowNodes ────────────────────────────────────────────────────────────
+// This computed re-runs whenever ANY node in board.nodes changes (position,
+// data, drag state, etc.) — Vue can't tell which node triggered it, only
+// that the array's contents changed. A plain `.map()` here would allocate a
+// brand-new object for every node on every recompute, which hands Vue Flow
+// an entirely new object identity for the whole board on every single move,
+// forcing it to re-diff nodes that didn't actually change.
+//
+// nodeObjectCache keeps one object per node id across recomputes. We only
+// build a new object for a node when a field Vue Flow actually cares about
+// has changed; every other node keeps its previous reference, so Vue Flow's
+// diffing sees a stable identity for anything that didn't move.
+const nodeObjectCache = new Map()
+
+const flowNodes = computed(() => {
+  const draggableBase = tool.active === 'select'
+  const seenIds = new Set()
+
+  const result = board.nodes.map((n) => {
+    seenIds.add(n.id)
+    const draggable = !n.thinking && draggableBase
+    const connectable = Boolean(n.serverId)
+    const zIndex = n.type === 'frame' ? FRAME_Z_INDEX : NODE_Z_INDEX
+    const cached = nodeObjectCache.get(n.id)
+
+    if (
+      cached &&
+      cached.type === n.type &&
+      cached.position.x === n.x &&
+      cached.position.y === n.y &&
+      cached.zIndex === zIndex &&
+      cached.data === n &&
+      cached.draggable === draggable &&
+      cached.connectable === connectable
+    ) {
+      return cached
+    }
+
+    const next = {
+      id: n.id,
+      type: n.type,
+      position: { x: n.x, y: n.y },
+      zIndex,
+      data: n,
+      draggable,
+      connectable,
+    }
+    nodeObjectCache.set(n.id, next)
+    return next
+  })
+
+  // Drop cache entries for nodes that no longer exist so it doesn't grow
+  // unbounded across the life of the board.
+  for (const id of nodeObjectCache.keys()) {
+    if (!seenIds.has(id)) nodeObjectCache.delete(id)
+  }
+
+  return result
+})
 
 // --- geometric containment (frame <-> member) ---
 
